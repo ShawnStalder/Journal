@@ -1,0 +1,41 @@
+@implements IDisposable
+@inject ThemeService Theme
+@inject IJSRuntime Js
+
+<DynamicComponent Type="PageType" Parameters="PageParameters" />
+
+@code {
+    [Parameter, EditorRequired]
+    public Type PageType { get; set; } = default!;
+
+    [Parameter]
+    public IDictionary<string, object?>? PageParameters { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Theme.Changed += OnThemeChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ApplyThemeAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        Theme.Changed -= OnThemeChanged;
+    }
+
+    private void OnThemeChanged()
+    {
+        _ = InvokeAsync(ApplyThemeAsync);
+    }
+
+    private async Task ApplyThemeAsync()
+    {
+        await Js.InvokeVoidAsync("journalInterop.setTheme", Theme.IsDark);
+    }
+}

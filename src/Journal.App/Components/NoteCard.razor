@@ -1,0 +1,82 @@
+@inject NoteHtmlSanitizer Sanitizer
+@inject IJSRuntime Js
+
+<article class="note @(Note.Type == NoteType.Sql ? "note-sql" : "note-text")">
+    <header class="note-header">
+        <span class="badge">@(Note.Type == NoteType.Sql ? "SQL" : "Text")</span>
+        <h4 class="note-title">@Note.Title</h4>
+        <time class="muted">@Note.CreatedOn.ToString("h:mm tt")</time>
+        <span class="spacer"></span>
+
+        @if (Note.Type == NoteType.Sql)
+        {
+            <button type="button" class="btn small" @onclick="CopyAsync">@(_justCopied ? "Copied" : "Copy")</button>
+        }
+
+        <button type="button" class="btn small" @onclick="() => OnEdit.InvokeAsync(Note)">Edit</button>
+
+        @if (_isConfirmingDelete)
+        {
+            <button type="button" class="btn small danger" @onclick="ConfirmDeleteAsync">Delete</button>
+            <button type="button" class="btn small" @onclick="() => _isConfirmingDelete = false">Keep</button>
+        }
+        else
+        {
+            <button type="button" class="btn small" @onclick="() => _isConfirmingDelete = true">Delete</button>
+        }
+    </header>
+
+    @if (Note.Type == NoteType.Sql)
+    {
+        <pre class="sql-view"><code>@((MarkupString)_renderedContent)</code></pre>
+    }
+    else
+    {
+        <div class="note-body">@((MarkupString)_renderedContent)</div>
+    }
+</article>
+
+@code {
+    private JournalNote? _renderedNote;
+    private string _renderedContent = string.Empty;
+    private bool _isConfirmingDelete;
+    private bool _justCopied;
+
+    [Parameter, EditorRequired]
+    public JournalNote Note { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<JournalNote> OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback<JournalNote> OnDelete { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (_renderedNote == Note)
+        {
+            return;
+        }
+
+        _renderedNote = Note;
+        _renderedContent = Note.Type == NoteType.Sql
+            ? SqlHighlighter.ToHtml(Note.Content)
+            : Sanitizer.Sanitize(Note.Content);
+    }
+
+    private async Task CopyAsync()
+    {
+        await Js.InvokeVoidAsync("journalInterop.copyText", Note.Content);
+        _justCopied = true;
+        StateHasChanged();
+
+        await Task.Delay(1500);
+        _justCopied = false;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        _isConfirmingDelete = false;
+        await OnDelete.InvokeAsync(Note);
+    }
+}

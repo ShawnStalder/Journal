@@ -1,0 +1,84 @@
+@implements IDisposable
+@inject IJSRuntime Js
+
+<section class="panel images-panel" aria-label="Images" @ref="_panel">
+    <header class="panel-header">
+        <h2>Images</h2>
+        <span class="count">@Images.Count</span>
+        <span class="spacer"></span>
+        <label class="btn small file-button">
+            Add images
+            <InputFile OnChange="OnFilesSelectedAsync" multiple accept=".png,.bmp,.jpg,.jpeg" @ref="_fileInput" />
+        </label>
+    </header>
+    <div class="panel-body">
+        @if (Images.Count == 0)
+        {
+            <p class="muted empty">Drop, paste or add .png, .bmp or .jpg images.</p>
+        }
+
+        <div class="thumb-grid">
+            @foreach (var image in Images)
+            {
+                <ThumbnailTile @key="image.FilePath" Image="image" OnOpen="OnOpen" OnDelete="OnDelete" />
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private const long MaximumImageBytes = 64 * 1024 * 1024;
+
+    private ElementReference _panel;
+    private InputFile? _fileInput;
+    private DotNetObjectReference<ImagesPanel>? _selfReference;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<JournalImage> Images { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<IReadOnlyList<ImageUpload>> OnUpload { get; set; }
+
+    [Parameter]
+    public EventCallback<JournalImage> OnOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<JournalImage> OnDelete { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _selfReference = DotNetObjectReference.Create(this);
+        await Js.InvokeVoidAsync("journalInterop.images.attach", _panel, _fileInput!.Element!.Value, _selfReference);
+    }
+
+    public void Dispose()
+    {
+        _selfReference?.Dispose();
+    }
+
+    [JSInvokable]
+    public async Task OnImagePasted(string fileName, string base64Content)
+    {
+        var upload = new ImageUpload(fileName, Convert.FromBase64String(base64Content));
+        await OnUpload.InvokeAsync([upload]);
+    }
+
+    private async Task OnFilesSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var uploads = new List<ImageUpload>();
+        foreach (var file in e.GetMultipleFiles(maximumFileCount: 50))
+        {
+            using var stream = file.OpenReadStream(MaximumImageBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            uploads.Add(new ImageUpload(file.Name, buffer.ToArray()));
+        }
+
+        await OnUpload.InvokeAsync(uploads);
+    }
+}

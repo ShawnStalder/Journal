@@ -1,0 +1,61 @@
+@inherits SafeComponentBase
+@inject IJournalCatalog Catalog
+
+<div class="dialog-page list-page">
+    <h1>Open Journal</h1>
+    <p class="muted"><span class="path">@Catalog.RootPath</span></p>
+
+    <input class="input" placeholder="Filter journals..." @ref="_filterInput" @bind="_filter" @bind:event="oninput" />
+
+    <ErrorBanner Message="@ErrorMessage" OnDismiss="ClearError" />
+
+    <ul class="journal-list">
+        @foreach (var name in FilteredNames)
+        {
+            <li @key="name">
+                <button type="button" class="list-item" @onclick="() => OnJournalChosen(name)">@name</button>
+            </li>
+        }
+    </ul>
+
+    @if (_isLoaded && !FilteredNames.Any())
+    {
+        <p class="muted empty">@(_names.Count == 0 ? "No journals yet. Use New Journal from the tray menu." : "No journals match the filter.")</p>
+    }
+
+    <div class="actions">
+        <button type="button" class="btn" @onclick="LoadAsync">Refresh</button>
+    </div>
+</div>
+
+@code {
+    private ElementReference _filterInput;
+    private IReadOnlyList<string> _names = [];
+    private string _filter = string.Empty;
+    private bool _isLoaded;
+
+    [Parameter, EditorRequired]
+    public Action<string> OnJournalChosen { get; set; } = default!;
+
+    private IEnumerable<string> FilteredNames => _names
+        .Where(name => name.Contains(_filter.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await _filterInput.FocusAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        await RunSafelyAsync(async () => _names = await Task.Run(Catalog.GetJournalNames));
+        _isLoaded = true;
+    }
+}

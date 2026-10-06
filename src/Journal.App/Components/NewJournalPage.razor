@@ -1,0 +1,58 @@
+@inherits SafeComponentBase
+@inject IJournalCatalog Catalog
+
+<form class="dialog-page" @onsubmit="CreateAsync">
+    <h1>New Journal</h1>
+    <p class="muted">Created in <span class="path">@Catalog.RootPath</span></p>
+
+    <label class="field">
+        <span>Journal name</span>
+        <input class="input" @ref="_nameInput" @bind="_name" @bind:event="oninput" maxlength="80" />
+    </label>
+
+    <ErrorBanner Message="@ErrorMessage" OnDismiss="ClearError" />
+
+    <div class="actions">
+        <button type="submit" class="btn primary" disabled="@_isCreating">Create</button>
+        <button type="button" class="btn" @onclick="Cancel">Cancel</button>
+    </div>
+</form>
+
+@code {
+    private ElementReference _nameInput;
+    private string _name = string.Empty;
+    private bool _isCreating;
+
+    [Parameter, EditorRequired]
+    public Action<string> OnCreated { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Action OnCancel { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await _nameInput.FocusAsync();
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        _isCreating = true;
+        string? createdName = null;
+
+        await RunSafelyAsync(async () => createdName = await Task.Run(() => Catalog.CreateJournal(_name)));
+
+        _isCreating = false;
+        if (createdName is not null)
+        {
+            OnCreated(createdName);
+        }
+    }
+
+    private void Cancel()
+    {
+        OnCancel();
+    }
+}

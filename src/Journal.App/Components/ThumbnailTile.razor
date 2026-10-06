@@ -1,0 +1,61 @@
+@inject IThumbnailProvider Thumbnails
+
+<figure class="thumb" title="@Image.FileName">
+    <button type="button" class="thumb-open" @onclick="() => OnOpen.InvokeAsync(Image)" aria-label="Open @Image.FileName">
+        @if (_dataUri is not null)
+        {
+            <img src="@_dataUri" alt="@Image.FileName" />
+        }
+        else
+        {
+            <span class="thumb-placeholder">@(_isLoading ? "Loading..." : "No preview")</span>
+        }
+    </button>
+    <figcaption>
+        <span class="thumb-name">@Image.FileName</span>
+        @if (_isConfirmingDelete)
+        {
+            <button type="button" class="btn small danger" @onclick="ConfirmDeleteAsync">Delete</button>
+            <button type="button" class="btn small" @onclick="() => _isConfirmingDelete = false">Keep</button>
+        }
+        else
+        {
+            <button type="button" class="btn icon small" title="Delete image" @onclick="() => _isConfirmingDelete = true">&#10005;</button>
+        }
+    </figcaption>
+</figure>
+
+@code {
+    private string? _loadedPath;
+    private string? _dataUri;
+    private bool _isLoading;
+    private bool _isConfirmingDelete;
+
+    [Parameter, EditorRequired]
+    public JournalImage Image { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<JournalImage> OnOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<JournalImage> OnDelete { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedPath == Image.FilePath)
+        {
+            return;
+        }
+
+        _loadedPath = Image.FilePath;
+        _isLoading = true;
+        _dataUri = await Thumbnails.GetDataUriAsync(Image);
+        _isLoading = false;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        _isConfirmingDelete = false;
+        await OnDelete.InvokeAsync(Image);
+    }
+}

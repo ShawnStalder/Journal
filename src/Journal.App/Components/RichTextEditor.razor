@@ -1,0 +1,79 @@
+@inject IJSRuntime Js
+
+<div class="rte">
+    <div class="rte-toolbar" role="toolbar" aria-label="Formatting">
+        <select class="input small" title="Paragraph style" @onchange="OnBlockChangedAsync">
+            <option value="p">Paragraph</option>
+            <option value="h1">Heading 1</option>
+            <option value="h2">Heading 2</option>
+            <option value="h3">Heading 3</option>
+            <option value="blockquote">Quote</option>
+        </select>
+
+        <span class="rte-group">
+            <button type="button" class="btn icon small" title="Bold (Ctrl+B)" @onmousedown:preventDefault @onclick='() => ExecuteAsync("bold")'><b>B</b></button>
+            <button type="button" class="btn icon small" title="Italic (Ctrl+I)" @onmousedown:preventDefault @onclick='() => ExecuteAsync("italic")'><i>I</i></button>
+            <button type="button" class="btn icon small" title="Underline (Ctrl+U)" @onmousedown:preventDefault @onclick='() => ExecuteAsync("underline")'><u>U</u></button>
+            <button type="button" class="btn icon small" title="Strikethrough" @onmousedown:preventDefault @onclick='() => ExecuteAsync("strikeThrough")'><s>S</s></button>
+        </span>
+
+        <span class="rte-group" title="Text color">
+            <span class="rte-label">A</span>
+            @foreach (var color in TextColors)
+            {
+                <button type="button" class="swatch" style="background:@color" title="Text color @color" aria-label="Text color @color" @onmousedown:preventDefault @onclick='() => ExecuteAsync("foreColor", color)'></button>
+            }
+            <input type="color" class="color-input" title="Custom text color" value="#ff8800" @onchange='e => ExecuteAsync("foreColor", e.Value)' />
+        </span>
+
+        <span class="rte-group" title="Highlight">
+            <span class="rte-label rte-highlight">ab</span>
+            @foreach (var color in HighlightColors)
+            {
+                <button type="button" class="swatch" style="background:@color" title="Highlight @color" aria-label="Highlight @color" @onmousedown:preventDefault @onclick='() => ExecuteAsync("hiliteColor", color)'></button>
+            }
+            <button type="button" class="btn icon small" title="Remove highlight" @onmousedown:preventDefault @onclick='() => ExecuteAsync("hiliteColor", "transparent")'>&#8856;</button>
+        </span>
+
+        <span class="rte-group">
+            <button type="button" class="btn icon small" title="Bulleted list" @onmousedown:preventDefault @onclick='() => ExecuteAsync("insertUnorderedList")'>&#8226;&#8801;</button>
+            <button type="button" class="btn icon small" title="Numbered list" @onmousedown:preventDefault @onclick='() => ExecuteAsync("insertOrderedList")'>1.</button>
+            <button type="button" class="btn icon small" title="Clear formatting" @onmousedown:preventDefault @onclick='() => ExecuteAsync("removeFormat")'>T<sub>x</sub></button>
+        </span>
+    </div>
+
+    <div class="rte-surface" contenteditable="true" spellcheck="true" @ref="_surface"></div>
+</div>
+
+@code {
+    private static readonly string[] TextColors = ["#e53935", "#fb8c00", "#43a047", "#1e88e5", "#8e24aa", "#757575"];
+    private static readonly string[] HighlightColors = ["#fff176", "#a5d6a7", "#f48fb1", "#81d4fa"];
+
+    private ElementReference _surface;
+
+    [Parameter]
+    public string InitialHtml { get; set; } = string.Empty;
+
+    public async Task<string> GetHtmlAsync()
+    {
+        return await Js.InvokeAsync<string>("journalInterop.rte.getHtml", _surface);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Js.InvokeVoidAsync("journalInterop.rte.init", _surface, InitialHtml);
+        }
+    }
+
+    private async Task ExecuteAsync(string command, object? value = null)
+    {
+        await Js.InvokeVoidAsync("journalInterop.rte.exec", _surface, command, value);
+    }
+
+    private Task OnBlockChangedAsync(ChangeEventArgs e)
+    {
+        return ExecuteAsync("formatBlock", e.Value);
+    }
+}

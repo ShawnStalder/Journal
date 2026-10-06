@@ -1,0 +1,45 @@
+<section class="panel notes-panel" aria-label="Notes">
+    <header class="panel-header">
+        <h2>Notes</h2>
+        <span class="count">@Notes.Count</span>
+    </header>
+    <div class="panel-body">
+        @if (Notes.Count == 0)
+        {
+            <p class="muted empty">No notes yet. Add one with New text note or New SQL note.</p>
+        }
+
+        @foreach (var day in Notes.GroupBy(note => note.CreatedOn.Date))
+        {
+            <h3 class="day-heading" @key="day.Key">@FormatDay(day.Key)</h3>
+            @foreach (var note in day)
+            {
+                <NoteCard @key="note.FilePath" Note="note" OnEdit="OnEdit" OnDelete="OnDelete" />
+            }
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<JournalNote> Notes { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<JournalNote> OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback<JournalNote> OnDelete { get; set; }
+
+    private static string FormatDay(DateTime date)
+    {
+        var today = DateTime.Today;
+        var formatted = date.ToString("dddd, MMMM d, yyyy");
+
+        if (date == today)
+        {
+            return $"Today - {formatted}";
+        }
+
+        return date == today.AddDays(-1) ? $"Yesterday - {formatted}" : formatted;
+    }
+}

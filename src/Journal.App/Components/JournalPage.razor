@@ -1,0 +1,218 @@
+@inherits SafeComponentBase
+@implements IDisposable
+@inject IJournalCatalog Catalog
+@inject INoteStore NoteStore
+@inject ITaskStore TaskStore
+@inject IImageStore ImageStore
+@inject IJournalWatcherFactory WatcherFactory
+@inject IWindowManager Windows
+
+<div class="journal">
+    <header class="journal-header">
+        <h1>@JournalName</h1>
+        <div class="header-actions">
+            <button type="button" class="btn primary" @onclick="() => StartNote(NoteType.Text)">New text note</button>
+            <button type="button" class="btn" @onclick="() => StartNote(NoteType.Sql)">New SQL note</button>
+            <button type="button" class="btn icon" title="Refresh" @onclick="() => ReloadAsync()">&#8635;</button>
+        </div>
+    </header>
+
+    <ErrorBanner Message="@ErrorMessage" OnDismiss="ClearError" />
+
+    <main class="journal-body">
+        <NotesPanel Notes="_notes" OnEdit="EditNote" OnDelete="DeleteNoteAsync" />
+        <div class="side">
+            <TasksPanel Tasks="_tasks"
+                        OnAdd="AddTaskAsync"
+                        OnToggle="SetTaskCompletedAsync"
+                        OnRename="RenameTaskAsync"
+                        OnDelete="DeleteTaskAsync" />
+            <ImagesPanel Images="_images"
+                         OnUpload="AddImagesAsync"
+                         OnOpen="OpenImage"
+                         OnDelete="DeleteImageAsync" />
+        </div>
+    </main>
+
+    @if (_editorRequest is not null)
+    {
+        <NoteEditorDialog Type="_editorRequest.Type"
+                          Existing="_editorRequest.Existing"
+                          ErrorMessage="@_editorError"
+                          OnSave="SaveNoteAsync"
+                          OnCancel="CloseEditor" />
+    }
+</div>
+
+@code {
+    private IReadOnlyList<JournalNote> _notes = [];
+    private IReadOnlyList<JournalTask> _tasks = [];
+    private IReadOnlyList<JournalImage> _images = [];
+    private NoteEditorRequest? _editorRequest;
+    private string? _editorError;
+    private IJournalWatcher? _watcher;
+    private bool _isDisposed;
+
+    [Parameter, EditorRequired]
+    public string JournalName { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        StartWatching();
+        await ReloadAsync();
+    }
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+        _watcher?.Dispose();
+    }
+
+    private void StartWatching()
+    {
+        try
+        {
+            _watcher = WatcherFactory.Watch(JournalName);
+            _watcher.Changed += OnJournalFilesChanged;
+        }
+        catch (ArgumentException)
+        {
+            ErrorMessage = $"The journal folder for '{JournalName}' could not be found in {Catalog.RootPath}.";
+        }
+        catch (IOException exception)
+        {
+            ErrorMessage = $"Changes to this journal will not refresh automatically: {exception.Message}";
+        }
+    }
+
+    private void OnJournalFilesChanged()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            await ReloadAsync(keepExistingError: true);
+            StateHasChanged();
+        });
+    }
+
+    private async Task ReloadAsync(bool keepExistingError = false)
+    {
+        await RunSafelyAsync(async () =>
+        {
+            var snapshot = await Task.Run(LoadSnapshot);
+            _notes = snapshot.Notes;
+            _tasks = snapshot.Tasks;
+            _images = snapshot.Images;
+        }, keepExistingError);
+    }
+
+    private JournalSnapshot LoadSnapshot()
+    {
+        return new JournalSnapshot(
+            NoteStore.GetNotes(JournalName),
+            TaskStore.GetTasks(JournalName),
+            ImageStore.GetImages(JournalName));
+    }
+
+    private async Task ChangeJournalAsync(Action change)
+    {
+        await RunSafelyAsync(() => Task.Run(change));
+        await ReloadAsync(keepExistingError: true);
+    }
+
+    private void StartNote(NoteType type)
+    {
+        _editorError = null;
+        _editorRequest = new NoteEditorRequest(type, null);
+    }
+
+    private void EditNote(JournalNote note)
+    {
+        _editorError = null;
+        _editorRequest = new NoteEditorRequest(note.Type, note);
+    }
+
+    private void CloseEditor()
+    {
+        _editorRequest = null;
+    }
+
+    private async Task SaveNoteAsync((string Title, string Content) draft)
+    {
+        var request = _editorRequest;
+        if (request is null)
+        {
+            return;
+        }
+
+        await ChangeJournalAsync(() => SaveNote(request, draft.Title, draft.Content));
+
+        _editorError = ErrorMessage;
+        if (_editorError is null)
+        {
+            _editorRequest = null;
+        }
+        else
+        {
+            ErrorMessage = null;
+        }
+    }
+
+    private void SaveNote(NoteEditorRequest request, string title, string content)
+    {
+        if (request.Existing is null)
+        {
+            NoteStore.AddNote(JournalName, request.Type, title, content);
+        }
+        else
+        {
+            NoteStore.UpdateNote(request.Existing, content);
+        }
+    }
+
+    private Task DeleteNoteAsync(JournalNote note) => ChangeJournalAsync(() => NoteStore.DeleteNote(note));
+
+    private Task AddTaskAsync(string title) => ChangeJournalAsync(() => TaskStore.AddTask(JournalName, title));
+
+    private Task SetTaskCompletedAsync((Guid Id, bool IsCompleted) change)
+    {
+        return ChangeJournalAsync(() => TaskStore.SetTaskCompleted(JournalName, change.Id, change.IsCompleted));
+    }
+
+    private Task RenameTaskAsync((Guid Id, string Title) change)
+    {
+        return ChangeJournalAsync(() => TaskStore.UpdateTaskTitle(JournalName, change.Id, change.Title));
+    }
+
+    private Task DeleteTaskAsync(Guid taskId) => ChangeJournalAsync(() => TaskStore.DeleteTask(JournalName, taskId));
+
+    private Task AddImagesAsync(IReadOnlyList<ImageUpload> uploads)
+    {
+        return ChangeJournalAsync(() => SaveImages(uploads));
+    }
+
+    private void SaveImages(IReadOnlyList<ImageUpload> uploads)
+    {
+        foreach (var upload in uploads)
+        {
+            using var content = new MemoryStream(upload.Content);
+            ImageStore.AddImage(JournalName, upload.FileName, content);
+        }
+    }
+
+    private Task DeleteImageAsync(JournalImage image) => ChangeJournalAsync(() => ImageStore.DeleteImage(image));
+
+    private void OpenImage(JournalImage image)
+    {
+        Windows.ShowImage(image);
+    }
+
+    private sealed record JournalSnapshot(
+        IReadOnlyList<JournalNote> Notes,
+        IReadOnlyList<JournalTask> Tasks,
+        IReadOnlyList<JournalImage> Images);
+}

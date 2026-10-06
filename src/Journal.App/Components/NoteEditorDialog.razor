@@ -1,0 +1,97 @@
+@inject NoteHtmlSanitizer Sanitizer
+
+<div class="modal-backdrop">
+    <div class="modal @(Type == NoteType.Sql ? "modal-sql" : "modal-text")" role="dialog" aria-modal="true" aria-label="@Heading">
+        <header class="modal-header">
+            <h2>@Heading</h2>
+        </header>
+
+        <div class="modal-body">
+            <label class="field">
+                <span>Title</span>
+                <input class="input"
+                       @bind="_title"
+                       @bind:event="oninput"
+                       maxlength="80"
+                       disabled="@(Existing is not null)"
+                       placeholder="Optional - used in the file name" />
+            </label>
+
+            @if (Type == NoteType.Sql)
+            {
+                <SqlEditor @ref="_sqlEditor" InitialText="@(Existing?.Content ?? string.Empty)" />
+            }
+            else
+            {
+                <RichTextEditor @ref="_richTextEditor" InitialHtml="@_initialHtml" />
+            }
+
+            <ErrorBanner Message="@ErrorMessage" />
+        </div>
+
+        <footer class="modal-footer">
+            <button type="button" class="btn primary" disabled="@_isSaving" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn" disabled="@_isSaving" @onclick="OnCancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+@code {
+    private RichTextEditor? _richTextEditor;
+    private SqlEditor? _sqlEditor;
+    private string _title = string.Empty;
+    private string _initialHtml = string.Empty;
+    private bool _isSaving;
+
+    [Parameter, EditorRequired]
+    public NoteType Type { get; set; }
+
+    [Parameter]
+    public JournalNote? Existing { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public EventCallback<(string Title, string Content)> OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private string Heading => (Type, Existing) switch
+    {
+        (NoteType.Sql, null) => "New SQL note",
+        (NoteType.Sql, _) => "Edit SQL note",
+        (_, null) => "New text note",
+        _ => "Edit text note"
+    };
+
+    protected override void OnInitialized()
+    {
+        if (Existing is null)
+        {
+            return;
+        }
+
+        _title = Existing.Title;
+        _initialHtml = Type == NoteType.Text ? Sanitizer.Sanitize(Existing.Content) : string.Empty;
+    }
+
+    private async Task SaveAsync()
+    {
+        _isSaving = true;
+        var content = await GetContentAsync();
+        await OnSave.InvokeAsync((_title, content));
+        _isSaving = false;
+    }
+
+    private async Task<string> GetContentAsync()
+    {
+        if (Type == NoteType.Sql)
+        {
+            return _sqlEditor!.GetContent();
+        }
+
+        return await _richTextEditor!.GetHtmlAsync();
+    }
+}

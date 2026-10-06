@@ -1,0 +1,115 @@
+<section class="panel tasks-panel" aria-label="Tasks">
+    <header class="panel-header">
+        <h2>Tasks</h2>
+        <span class="count">@Tasks.Count(task => !task.IsCompleted) open</span>
+    </header>
+
+    <form class="task-add" @onsubmit="AddAsync">
+        <input class="input" placeholder="Add a task and press Enter" @bind="_newTitle" @bind:event="oninput" />
+    </form>
+
+    <div class="panel-body">
+        @if (Tasks.Count == 0)
+        {
+            <p class="muted empty">No tasks yet.</p>
+        }
+
+        <ul class="task-list">
+            @foreach (var task in Tasks)
+            {
+                <li @key="task.Id" class="task @(task.IsCompleted ? "done" : string.Empty)">
+                    <input type="checkbox"
+                           class="task-check"
+                           checked="@task.IsCompleted"
+                           aria-label="Mark '@task.Title' completed"
+                           @onchange="e => ToggleAsync(task, (bool)e.Value!)" />
+
+                    @if (_editingId == task.Id)
+                    {
+                        <input class="input task-edit"
+                               @bind="_editTitle"
+                               @bind:event="oninput"
+                               @onkeydown="e => OnEditKeyAsync(e, task)"
+                               @onblur="() => _editingId = null" />
+                    }
+                    else
+                    {
+                        <div class="task-text" @ondblclick="() => BeginEdit(task)" title="Double-click to edit">
+                            <span class="task-title">@task.Title</span>
+                            @if (task.IsCompleted && task.CompletedOn is { } completedOn)
+                            {
+                                <span class="muted task-meta">Completed @completedOn.ToString("MMM d, yyyy h:mm tt")</span>
+                            }
+                        </div>
+                    }
+
+                    <button type="button" class="btn icon small task-delete" title="Delete task" @onclick="() => OnDelete.InvokeAsync(task.Id)">&#10005;</button>
+                </li>
+            }
+        </ul>
+    </div>
+</section>
+
+@code {
+    private string _newTitle = string.Empty;
+    private Guid? _editingId;
+    private string _editTitle = string.Empty;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<JournalTask> Tasks { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<string> OnAdd { get; set; }
+
+    [Parameter]
+    public EventCallback<(Guid Id, bool IsCompleted)> OnToggle { get; set; }
+
+    [Parameter]
+    public EventCallback<(Guid Id, string Title)> OnRename { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnDelete { get; set; }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle))
+        {
+            return;
+        }
+
+        var title = _newTitle;
+        _newTitle = string.Empty;
+        await OnAdd.InvokeAsync(title);
+    }
+
+    private Task ToggleAsync(JournalTask task, bool isCompleted)
+    {
+        return OnToggle.InvokeAsync((task.Id, isCompleted));
+    }
+
+    private void BeginEdit(JournalTask task)
+    {
+        _editingId = task.Id;
+        _editTitle = task.Title;
+    }
+
+    private async Task OnEditKeyAsync(KeyboardEventArgs e, JournalTask task)
+    {
+        if (e.Key == "Escape")
+        {
+            _editingId = null;
+            return;
+        }
+
+        if (e.Key != "Enter")
+        {
+            return;
+        }
+
+        _editingId = null;
+        if (!string.IsNullOrWhiteSpace(_editTitle) && _editTitle != task.Title)
+        {
+            await OnRename.InvokeAsync((task.Id, _editTitle));
+        }
+    }
+}

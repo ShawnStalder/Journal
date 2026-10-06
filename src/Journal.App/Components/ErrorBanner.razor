@@ -1,0 +1,15 @@
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="banner error" role="alert">
+        <span>@Message</span>
+        <button type="button" class="btn icon" title="Dismiss" @onclick="OnDismiss">&#10005;</button>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+}

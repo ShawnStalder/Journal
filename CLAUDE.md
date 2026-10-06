@@ -1,0 +1,60 @@
+# Journal - Architecture
+
+This file is additive to the enterprise-managed standards (C#/.NET and SQL); it does not restate them.
+
+## Solution layout
+
+| Project | Role |
+| --- | --- |
+| `src/Journal.Core` | Platform-neutral logic: models, file-backed stores, file watcher, HTML sanitizer, SQL highlighter, settings/session state. No UI references. |
+| `src/Journal.App` | WPF shell (`net10.0-windows`) hosting Blazor pages in `BlazorWebView`. Tray icon, windows, theme, thumbnails, Razor components, `wwwroot` (CSS and JS). |
+| `tests/Journal.Tests` | xUnit tests for `Journal.Core`. Tests use a temporary folder and a fixed `TimeProvider`. |
+
+## On-disk format (the contract with the user's data)
+
+```
+<Root>\<Journal Name>\
+    JournalTasks.tsk     JSON: { "tasks": [ { id, title, isCompleted, createdOn, completedOn } ] }
+    Entries\             text notes, one .html file each
+    SQL\                 SQL notes, one .sql file each
+    Images\              .png / .bmp / .jpg / .jpeg
+```
+
+- Note files are named `yyyy-MM-dd_HHmmss_Title.ext`. The timestamp drives newest-first ordering and the title is shown
+  in the UI. Files that do not follow the pattern (added by hand) still load, using the file's last-write time.
+- The root is `JournalLocations.DefaultRootPath` (a UNC path, deliberately hard-coded). The `JOURNAL_ROOT_PATH`
+  environment variable overrides it for development and tests only.
+- `.tsk` writes re-read the file, apply one change and replace it via a temp file, so edits made by another process are
+  not lost.
+
+## Key components
+
+- **Stores** (`INoteStore`, `ITaskStore`, `IImageStore`, `IJournalCatalog`): small single-purpose classes over the file
+  system, registered as singletons in `App.xaml.cs`. They throw `JournalException` for problems the user can fix;
+  file-system errors (`IOException`, `UnauthorizedAccessException`) bubble up.
+- **`SafeComponentBase`**: Razor pages inherit it and wrap store calls in `RunSafelyAsync`, which turns those expected
+  exceptions into a banner. Do not catch `Exception` broadly.
+- **`WindowManager`** (`IWindowManager`): the only place that creates windows. One window per journal, plus single
+  New/Open windows and image viewers. Components ask it to open things; they never create windows.
+- **`BlazorWindow`**: a WPF `Window` whose content is a `BlazorWebView` rendering `AppShell`, which hosts the requested
+  page via `DynamicComponent` and applies the theme.
+- **`JournalWatcher`**: `FileSystemWatcher` with debouncing. A journal page reloads on change; watcher errors are treated
+  as "something changed".
+- **Rich text**: `contenteditable` plus `document.execCommand` in `wwwroot/js/journal.js`. Saved HTML is sanitized
+  (`NoteHtmlSanitizer`) before it is displayed or loaded back into the editor.
+- **SQL editor**: a transparent `<textarea>` over a highlighted `<pre>`. `SqlHighlighter` produces the HTML. No external
+  editor libraries, so the app works offline.
+- **Thumbnails**: `ThumbnailProvider` decodes with WPF imaging, caches by path and timestamp, and limits concurrent
+  reads to protect the network share. Browsers cannot read the share directly, so thumbnails are served as data URIs.
+- **Tray and lifetime**: `ShutdownMode=OnExplicitShutdown`; a named mutex enforces a single instance. Restart saves the
+  open journal names (`SessionStore`) and starts a new process, which waits on the mutex until the old one exits.
+
+## Things to know before changing code
+
+- WebView2 needs the Windows SDK projection, so the app project targets `net10.0-windows10.0.19041.0`.
+- The app is per-monitor DPI aware via `app.manifest`; `WFO0003` is suppressed because WinForms is only used for the
+  tray `NotifyIcon`.
+- Keyboard focus must be given to the inner `WebView2` control (see `BlazorWindow`), not the `BlazorWebView` wrapper,
+  or autofocus works in the DOM but typing does not reach the page.
+- Dropping a file onto the page would navigate the browser away, so `journal.js` cancels window-level drag/drop.
+- New behavior in `Journal.Core` needs unit tests. UI behavior is verified by running the app.
