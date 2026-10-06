@@ -19,6 +19,9 @@
     [Parameter]
     public string InitialText { get; set; } = string.Empty;
 
+    [Parameter]
+    public bool AutoFocus { get; set; } = true;
+
     public string GetContent() => _text;
 
     protected override void OnInitialized()
@@ -31,7 +34,10 @@
         if (firstRender)
         {
             await Js.InvokeVoidAsync("journalInterop.sql.attach", _input, _highlight);
-            await _input.FocusAsync();
+            if (AutoFocus)
+            {
+                await _input.FocusAsync();
+            }
         }
     }
 }

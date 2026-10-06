@@ -36,6 +36,7 @@ public partial class App : System.Windows.Application
 
         _services = BuildServices();
         var theme = _services.GetRequiredService<ThemeService>();
+        EnableAutoStartOnFirstRun();
         _trayIconImage = AppIcon.CreateTrayIcon();
         _trayIcon = new Forms.NotifyIcon
         {
@@ -79,6 +80,8 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IJournalWatcherFactory, JournalWatcherFactory>();
         services.AddSingleton<NoteHtmlSanitizer>();
         services.AddSingleton(new SettingsStore(stateFolder));
+        services.AddSingleton(provider => provider.GetRequiredService<SettingsStore>().Load());
+        services.AddSingleton<AutoStartService>();
         services.AddSingleton(new SessionStore(stateFolder));
         services.AddSingleton<ThemeService>();
         services.AddSingleton<IThumbnailProvider, ThumbnailProvider>();
@@ -116,6 +119,7 @@ public partial class App : System.Windows.Application
         menu.Items.Add("Open Journal", null, (_, _) => _services!.GetRequiredService<IWindowManager>().ShowOpenJournal());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(BuildThemeMenuItem(theme));
+        menu.Items.Add(BuildAutoStartMenuItem());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Restart", null, (_, _) => Restart());
         menu.Items.Add("Exit", null, (_, _) => Shutdown());
@@ -143,6 +147,32 @@ public partial class App : System.Windows.Application
         themeMenu.DropDownItems.Add(darkItem);
         themeMenu.DropDownItems.Add(lightItem);
         return themeMenu;
+    }
+
+    // Opt-out rather than opt-in: a journal that is always in the tray is the intent, and the menu item undoes it.
+    private void EnableAutoStartOnFirstRun()
+    {
+        var settings = _services!.GetRequiredService<AppSettings>();
+        if (settings.HasConfiguredAutoStart)
+        {
+            return;
+        }
+
+        _services!.GetRequiredService<AutoStartService>().SetEnabled(true);
+        settings.HasConfiguredAutoStart = true;
+        _services!.GetRequiredService<SettingsStore>().Save(settings);
+    }
+
+    private Forms.ToolStripMenuItem BuildAutoStartMenuItem()
+    {
+        var autoStart = _services!.GetRequiredService<AutoStartService>();
+        var item = new Forms.ToolStripMenuItem("Start with Windows") { Checked = autoStart.IsEnabled };
+        item.Click += (_, _) =>
+        {
+            autoStart.SetEnabled(!autoStart.IsEnabled);
+            item.Checked = autoStart.IsEnabled;
+        };
+        return item;
     }
 
     private void Restart()

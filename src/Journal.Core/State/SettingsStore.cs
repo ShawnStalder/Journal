@@ -5,6 +5,9 @@ namespace Journal.Core.State;
 public sealed class AppSettings
 {
     public bool IsDarkTheme { get; set; } = true;
+
+    /// <summary>True once the app has offered start-with-Windows, so a later opt-out is respected.</summary>
+    public bool HasConfiguredAutoStart { get; set; }
 }
 
 public sealed class SettingsStore

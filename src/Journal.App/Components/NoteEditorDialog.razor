@@ -10,6 +10,7 @@
             <label class="field">
                 <span>Title</span>
                 <input class="input"
+                       @ref="_titleInput"
                        @bind="_title"
                        @bind:event="oninput"
                        maxlength="80"
@@ -19,11 +20,11 @@
 
             @if (Type == NoteType.Sql)
             {
-                <SqlEditor @ref="_sqlEditor" InitialText="@(Existing?.Content ?? string.Empty)" />
+                <SqlEditor @ref="_sqlEditor" InitialText="@(Existing?.Content ?? string.Empty)" AutoFocus="@(Existing is not null)" />
             }
             else
             {
-                <RichTextEditor @ref="_richTextEditor" InitialHtml="@_initialHtml" />
+                <RichTextEditor @ref="_richTextEditor" InitialHtml="@_initialHtml" AutoFocus="@(Existing is not null)" />
             }
 
             <ErrorBanner Message="@ErrorMessage" />
@@ -37,6 +38,7 @@
 </div>
 
 @code {
+    private ElementReference _titleInput;
     private RichTextEditor? _richTextEditor;
     private SqlEditor? _sqlEditor;
     private string _title = string.Empty;
@@ -75,6 +77,15 @@
 
         _title = Existing.Title;
         _initialHtml = Type == NoteType.Text ? Sanitizer.Sanitize(Existing.Content) : string.Empty;
+    }
+
+    // An existing note's title is read-only (it is part of the file name), so its editor takes focus instead.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Existing is null)
+        {
+            await _titleInput.FocusAsync();
+        }
     }
 
     private async Task SaveAsync()

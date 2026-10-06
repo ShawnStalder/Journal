@@ -11,8 +11,6 @@
     <header class="journal-header">
         <h1>@JournalName</h1>
         <div class="header-actions">
-            <button type="button" class="btn primary" @onclick="() => StartNote(NoteType.Text)">New text note</button>
-            <button type="button" class="btn" @onclick="() => StartNote(NoteType.Sql)">New SQL note</button>
             <button type="button" class="btn icon" title="Refresh" @onclick="() => ReloadAsync()">&#8635;</button>
         </div>
     </header>
@@ -20,7 +18,10 @@
     <ErrorBanner Message="@ErrorMessage" OnDismiss="ClearError" />
 
     <main class="journal-body">
-        <NotesPanel Notes="_notes" OnEdit="EditNote" OnDelete="DeleteNoteAsync" />
+        <NotesPanel Notes="_notes"
+                    OnNew="StartNote"
+                    OnEdit="EditNote"
+                    OnDelete="DeleteNoteAsync" />
         <div class="side">
             <TasksPanel Tasks="_tasks"
                         OnAdd="AddTaskAsync"

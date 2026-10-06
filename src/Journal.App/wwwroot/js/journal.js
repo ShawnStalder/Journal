@@ -66,6 +66,23 @@
         });
     }
 
+    function isInListItem() {
+        const selection = document.getSelection();
+        const node = selection && selection.anchorNode;
+        const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+        return Boolean(element && element.closest('li'));
+    }
+
+    // Outside a list, Tab keeps its normal meaning (moving focus) so keyboard users are not trapped.
+    function handleListIndent(event) {
+        if (event.key !== 'Tab' || !isInListItem()) {
+            return;
+        }
+
+        event.preventDefault();
+        document.execCommand(event.shiftKey ? 'outdent' : 'indent');
+    }
+
     let pasteHandler = null;
 
     window.journalInterop = {
@@ -91,10 +108,13 @@
         },
 
         rte: {
-            init(element, html) {
+            init(element, html, autoFocus) {
                 document.execCommand('styleWithCSS', false, true);
                 element.innerHTML = html;
-                element.focus();
+                element.addEventListener('keydown', handleListIndent);
+                if (autoFocus) {
+                    element.focus();
+                }
             },
 
             exec(element, command, value) {

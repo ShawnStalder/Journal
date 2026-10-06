@@ -7,10 +7,10 @@ public sealed class ThemeService
     private readonly SettingsStore _settingsStore;
     private readonly AppSettings _settings;
 
-    public ThemeService(SettingsStore settingsStore)
+    public ThemeService(SettingsStore settingsStore, AppSettings settings)
     {
         _settingsStore = settingsStore;
-        _settings = settingsStore.Load();
+        _settings = settings;
     }
 
     public event Action? Changed;

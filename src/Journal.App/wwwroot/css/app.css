@@ -16,6 +16,7 @@
     --sql-number: #f2a65a;
     --sql-comment: #7f8795;
     --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    --code-font: "Fira Code", "Cascadia Code", Consolas, monospace;
     color-scheme: dark;
 }
 
@@ -368,6 +369,13 @@ h2 {
     color: var(--sql-number);
 }
 
+.note-body,
+.rte-surface {
+    font-family: var(--code-font);
+    font-variant-ligatures: contextual common-ligatures;
+    font-feature-settings: "calt", "liga";
+}
+
 .note-body {
     margin-top: 6px;
     overflow-wrap: anywhere;
@@ -405,10 +413,17 @@ h2 {
     margin: 4px 0;
 }
 
+.sql-view,
+.sql-highlight,
+.sql-input {
+    font-variant-ligatures: contextual common-ligatures;
+    font-feature-settings: "calt", "liga";
+}
+
 .sql-view {
     background: var(--code-bg);
     border-radius: 4px;
-    font-family: Consolas, "Cascadia Mono", monospace;
+    font-family: var(--code-font);
     font-size: 13px;
     margin: 6px 0 0;
     max-height: 420px;
@@ -439,6 +454,14 @@ h2 {
 .task-add {
     border-bottom: 1px solid var(--border);
     padding: 8px 12px;
+}
+
+.task-list,
+.task-add .input,
+.task-edit {
+    font-family: var(--code-font);
+    font-variant-ligatures: contextual common-ligatures;
+    font-feature-settings: "calt", "liga";
 }
 
 .task-list {
@@ -709,7 +732,7 @@ h2 {
 .sql-highlight,
 .sql-input {
     border: 0;
-    font-family: Consolas, "Cascadia Mono", monospace;
+    font-family: var(--code-font);
     font-size: 13px;
     inset: 0;
     letter-spacing: 0;
