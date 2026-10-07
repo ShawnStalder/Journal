@@ -1,0 +1,7 @@
+highlight.js v11.11.2 (common languages bundle) plus the PowerShell language grammar.
+Source: https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/
+Copyright (c) 2006-2026 Josh Goebel and other contributors
+License: BSD-3-Clause (https://github.com/highlightjs/highlight.js/blob/main/LICENSE)
+
+The files are copied unmodified so the app works without network access. To upgrade, replace highlight.min.js and
+powershell.min.js with the same files from a newer cdnjs release and update the version above.

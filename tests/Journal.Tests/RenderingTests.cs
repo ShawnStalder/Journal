@@ -78,6 +78,51 @@ public sealed class RenderingTests
         Assert.Contains("<span class=\"sql-comment\">/* open</span>", result);
     }
 
+    [Fact]
+    public void Sanitize_KeepsCodeBlocksAndTheirLanguage()
+    {
+        var html = "<pre><code class=\"language-csharp\">var x = 1;\nif (x &lt; 2) { }</code></pre><p>use <code>var</code></p>";
+
+        var result = _sanitizer.Sanitize(html);
+
+        Assert.Contains("<pre><code class=\"language-csharp\">", result);
+        Assert.Contains("x &lt; 2", result);
+        Assert.Contains("<code>var</code>", result);
+    }
+
+    [Fact]
+    public void Sanitize_DoesNotLetCodeTextBecomeMarkup()
+    {
+        var html = "<pre><code class=\"language-plaintext\">&lt;script&gt;alert(1)&lt;/script&gt;</code></pre>";
+
+        var result = _sanitizer.Sanitize(html);
+
+        Assert.DoesNotContain("<script", result);
+        Assert.Contains("&lt;script&gt;", result);
+    }
+
+    [Fact]
+    public void Sanitize_DropsClassesThatAreNotCodeLanguages()
+    {
+        var html = "<pre class=\"evil\"><code class=\"language-sql evil\">SELECT 1</code></pre>";
+
+        var result = _sanitizer.Sanitize(html);
+
+        Assert.DoesNotContain("evil", result);
+        Assert.Contains("language-sql", result);
+    }
+
+    [Fact]
+    public void CodeLanguages_HaveUniqueLowercaseIds()
+    {
+        var ids = CodeLanguages.All
+            .Select(language => language.Id)
+            .ToList();
+
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+        Assert.All(ids, id => Assert.Equal(id.ToLowerInvariant(), id));
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         return text.Split(value).Length - 1;

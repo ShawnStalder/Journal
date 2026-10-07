@@ -16,6 +16,13 @@ public sealed class NoteHtmlSanitizer
         _sanitizer.AllowedSchemes.Add("data");
         _sanitizer.AllowedTags.Add("font");
         _sanitizer.AllowedAttributes.Add("color");
+        _sanitizer.AllowedAttributes.Add("class");
+
+        // Only the code-block language classes survive; any other class on a note is dropped.
+        foreach (var language in CodeLanguages.All)
+        {
+            _sanitizer.AllowedClasses.Add(CodeLanguages.GetClassName(language.Id));
+        }
     }
 
     public string Sanitize(string html)

@@ -822,3 +822,136 @@ h2 {
 .modal-header.dragging {
     cursor: grabbing;
 }
+
+/* Code blocks in text notes (display and editor) */
+
+:root {
+    --code-title: #e6c07b;
+    --code-attr: #8ab4f8;
+    --code-tag: #f28b82;
+}
+
+:root[data-theme="light"] {
+    --code-title: #6f42c1;
+    --code-attr: #005cc5;
+    --code-tag: #22863a;
+}
+
+.note-body pre,
+.rte-surface pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--code-font);
+    font-size: 13px;
+    margin: 8px 0;
+    overflow: auto;
+    padding: 8px 12px;
+    tab-size: 4;
+    white-space: pre;
+}
+
+.note-body pre::before,
+.rte-surface pre::before {
+    color: var(--muted);
+    content: attr(data-lang);
+    display: block;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 11px;
+    margin-bottom: 4px;
+    user-select: none;
+}
+
+.note-body pre code,
+.rte-surface pre code {
+    background: none;
+    border: 0;
+    padding: 0;
+}
+
+.note-body code,
+.rte-surface code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--code-font);
+    font-size: 0.92em;
+    padding: 0 4px;
+}
+
+.code-block {
+    position: relative;
+}
+
+.code-copy {
+    background: var(--panel-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    padding: 0 8px;
+    position: absolute;
+    right: 8px;
+    top: 14px;
+}
+
+.code-copy:hover {
+    border-color: var(--accent);
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-literal,
+.hljs-meta .hljs-keyword {
+    color: var(--sql-keyword);
+    font-weight: 600;
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+    color: var(--sql-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+    color: var(--sql-number);
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: var(--sql-comment);
+    font-style: italic;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-built_in,
+.hljs-type,
+.hljs-class {
+    color: var(--code-title);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-property,
+.hljs-params {
+    color: var(--code-attr);
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-deletion {
+    color: var(--code-tag);
+}
+
+.hljs-meta {
+    color: var(--muted);
+}

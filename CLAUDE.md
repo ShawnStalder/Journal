@@ -46,6 +46,12 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
   as "something changed".
 - **Rich text**: `contenteditable` plus `document.execCommand` in `wwwroot/js/journal.js`. Saved HTML is sanitized
   (`NoteHtmlSanitizer`) before it is displayed or loaded back into the editor.
+- **Code blocks in text notes**: stored as `<pre><code class="language-xxx">` with plain text only (no highlighting markup).
+  The editor inserts and cleans them in `journal.js` (`rte.insertCodeBlock`, `cleanCodeBlocks`; Enter inserts a newline,
+  Tab inserts spaces, Ctrl+Enter leaves the block, paste is plain text). Highlighting and the Copy button are added at
+  display time by `code.highlight` using the bundled highlight.js in `wwwroot/lib/highlight` (see its NOTICE.txt).
+  Language ids live in `CodeLanguages` (Core) and are the only classes `NoteHtmlSanitizer` allows; add a language there,
+  in the `languageLabels` map in `journal.js`, and make sure the bundle includes its grammar.
 - **SQL editor**: a transparent `<textarea>` over a highlighted `<pre>`. `SqlHighlighter` produces the HTML. No external
   editor libraries, so the app works offline.
 - **Thumbnails**: `ThumbnailProvider` decodes with WPF imaging, caches by path and timestamp, and limits concurrent

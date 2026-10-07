@@ -22,6 +22,7 @@ See [CLAUDE.md](CLAUDE.md) for the solution architecture and key decisions.
 - .NET 10, C#
 - WPF shell with Blazor (`BlazorWebView`, WebView2) for the UI
 - `HtmlSanitizer` (Ganss.Xss) to make saved HTML safe to render
+- highlight.js (bundled, BSD-3-Clause) for syntax highlighting of code blocks in text notes
 - xUnit for tests
 - Storage: files on the network share `\\dbsfp1.dbs.local\users\sstalder\My Documents\Journals\`
 - Runtime requirement: the Microsoft Edge WebView2 Runtime (included with Windows 11)

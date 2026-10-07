@@ -2,7 +2,7 @@
 @inject IJSRuntime Js
 
 <div class="modal-backdrop">
-    <div class="modal @(Type == NoteType.Sql ? "modal-sql" : "modal-text")" role="dialog" aria-modal="true" aria-label="@Heading" @ref="_modal">
+    <div class="modal @(Type == NoteType.Sql ? "modal-sql" : "modal-text")" role="dialog" aria-modal="true" aria-label="@Heading" @ref="_modal" @onkeydown="OnKeyDownAsync">
         <header class="modal-header" title="Drag to move" @ref="_header">
             <h2>@Heading</h2>
         </header>
@@ -94,6 +94,15 @@
         if (Existing is null)
         {
             await _titleInput.FocusAsync();
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        var isSaveShortcut = (e.CtrlKey || e.MetaKey) && string.Equals(e.Key, "s", StringComparison.OrdinalIgnoreCase);
+        if (isSaveShortcut && !_isSaving)
+        {
+            await SaveAsync();
         }
     }
 

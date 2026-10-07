@@ -40,6 +40,17 @@
             <button type="button" class="btn icon small" title="Numbered list" @onmousedown:preventDefault @onclick='() => ExecuteAsync("insertOrderedList")'>1.</button>
             <button type="button" class="btn icon small" title="Clear formatting" @onmousedown:preventDefault @onclick='() => ExecuteAsync("removeFormat")'>T<sub>x</sub></button>
         </span>
+
+        <span class="rte-group">
+            <select class="input small" title="Insert a code block, or change the language of the block you are in" @ref="_codeSelect" @onchange="OnCodeBlockChosenAsync">
+                <option value="">Code block...</option>
+                @foreach (var language in CodeLanguages.All)
+                {
+                    <option value="@language.Id">@language.Label</option>
+                }
+            </select>
+            <button type="button" class="btn icon small" title="Inline code (select text first)" @onmousedown:preventDefault @onclick="InsertInlineCodeAsync">&lt;/&gt;</button>
+        </span>
     </div>
 
     <div class="rte-surface" contenteditable="true" spellcheck="true" @ref="_surface"></div>
@@ -50,6 +61,7 @@
     private static readonly string[] HighlightColors = ["#fff176", "#a5d6a7", "#f48fb1", "#81d4fa"];
 
     private ElementReference _surface;
+    private ElementReference _codeSelect;
 
     [Parameter]
     public string InitialHtml { get; set; } = string.Empty;
@@ -73,6 +85,23 @@
     private async Task ExecuteAsync(string command, object? value = null)
     {
         await Js.InvokeVoidAsync("journalInterop.rte.exec", _surface, command, value);
+    }
+
+    private async Task OnCodeBlockChosenAsync(ChangeEventArgs e)
+    {
+        var language = e.Value?.ToString();
+        if (string.IsNullOrEmpty(language))
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("journalInterop.rte.insertCodeBlock", _surface, language);
+        await Js.InvokeVoidAsync("journalInterop.rte.resetSelect", _codeSelect);
+    }
+
+    private async Task InsertInlineCodeAsync()
+    {
+        await Js.InvokeVoidAsync("journalInterop.rte.insertInlineCode", _surface);
     }
 
     private Task OnBlockChangedAsync(ChangeEventArgs e)

@@ -83,6 +83,184 @@
         document.execCommand(event.shiftKey ? 'outdent' : 'indent');
     }
 
+    // Same ids as Journal.Core CodeLanguages; unknown ids fall back to the id itself.
+    const languageLabels = {
+        csharp: 'C#', sql: 'SQL', json: 'JSON', xml: 'XML / HTML', javascript: 'JavaScript', typescript: 'TypeScript',
+        powershell: 'PowerShell', yaml: 'YAML', bash: 'Bash', python: 'Python', css: 'CSS', plaintext: 'Plain text',
+        auto: 'Auto-detect'
+    };
+
+    function languageOf(code) {
+        const match = [...code.classList].find(name => name.startsWith('language-'));
+        return match ? match.substring('language-'.length) : 'plaintext';
+    }
+
+    function labelFor(language) {
+        return languageLabels[language] ?? language;
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function currentCodeElement() {
+        const selection = document.getSelection();
+        const node = selection && selection.anchorNode;
+        const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+        return element ? element.closest('pre code') : null;
+    }
+
+    function isCaretAtEnd(code) {
+        const selection = document.getSelection();
+        if (!selection.isCollapsed) {
+            return false;
+        }
+
+        const tail = document.createRange();
+        tail.setStart(selection.anchorNode, selection.anchorOffset);
+        tail.setEnd(code, code.childNodes.length);
+        return tail.toString() === '';
+    }
+
+    // A newline at the very end of a <pre> renders as nothing, so a sentinel newline is added and skipped over.
+    // The sentinel is trimmed again in getHtml.
+    function insertCodeNewline(code) {
+        if (isCaretAtEnd(code)) {
+            document.execCommand('insertText', false, '\n\n');
+            document.getSelection().modify('move', 'backward', 'character');
+        } else {
+            document.execCommand('insertText', false, '\n');
+        }
+    }
+
+    function exitCodeBlock(code) {
+        const pre = code.closest('pre');
+        let next = pre.nextElementSibling;
+        if (!next) {
+            next = document.createElement('p');
+            next.appendChild(document.createElement('br'));
+            pre.after(next);
+        }
+
+        const range = document.createRange();
+        range.setStart(next, 0);
+        range.collapse(true);
+        const selection = document.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    // insertHTML leaves the caret in the paragraph after the block; move it into the block so typing starts there.
+    function placeCaretInInsertedBlock() {
+        const selection = document.getSelection();
+        const node = selection && selection.anchorNode;
+        const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+        const previous = element ? element.closest('p')?.previousElementSibling : null;
+        const code = previous && previous.tagName === 'PRE' ? previous.querySelector('code') : null;
+        if (!code) {
+            return;
+        }
+
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        range.collapse(code.textContent.length > 0 ? false : true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    function handleCodeKey(event, code) {
+        if (event.key === 'Tab' && !event.shiftKey) {
+            event.preventDefault();
+            document.execCommand('insertText', false, '    ');
+        } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            exitCodeBlock(code);
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            insertCodeNewline(code);
+        }
+    }
+
+    function handleEditorKeys(event) {
+        const code = currentCodeElement();
+        if (code) {
+            handleCodeKey(event, code);
+        } else {
+            handleListIndent(event);
+        }
+    }
+
+    // Code is always pasted as plain text so formatting from the source never leaks into the block.
+    function handleEditorPaste(event) {
+        if (!currentCodeElement()) {
+            return;
+        }
+
+        event.preventDefault();
+        const text = (event.clipboardData.getData('text/plain') || '').replace(/\r\n?/g, '\n');
+        document.execCommand('insertText', false, text);
+    }
+
+    function labelCodeBlocks(root) {
+        root.querySelectorAll('pre > code').forEach(code => {
+            code.parentElement.dataset.lang = labelFor(languageOf(code));
+        });
+    }
+
+    // The editor stores code as plain text only; browsers may add <br>, spans or the data-lang badge while editing.
+    function cleanCodeBlocks(root) {
+        root.querySelectorAll('pre').forEach(pre => {
+            pre.removeAttribute('data-lang');
+            const language = pre.querySelector('code') ? languageOf(pre.querySelector('code')) : 'plaintext';
+            pre.querySelectorAll('br').forEach(lineBreak => lineBreak.replaceWith('\n'));
+            const code = document.createElement('code');
+            code.className = `language-${language}`;
+            code.textContent = pre.textContent.replace(/\n+$/, '');
+            pre.replaceChildren(code);
+        });
+    }
+
+    function highlightCode(code, pre) {
+        if (!window.hljs) {
+            return;
+        }
+
+        const language = languageOf(code);
+        const text = code.textContent;
+        let result = null;
+        if (language === 'auto') {
+            result = window.hljs.highlightAuto(text);
+        } else if (window.hljs.getLanguage(language)) {
+            result = window.hljs.highlight(text, { language, ignoreIllegals: true });
+        }
+
+        if (result) {
+            code.innerHTML = result.value;
+            code.classList.add('hljs');
+            if (language === 'auto' && result.language) {
+                pre.dataset.lang = `${labelFor(result.language)} (auto)`;
+            }
+        }
+    }
+
+    function wrapWithCopyButton(pre, code) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block';
+        pre.replaceWith(wrapper);
+        wrapper.appendChild(pre);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'code-copy';
+        button.textContent = 'Copy';
+        button.addEventListener('click', () => {
+            window.journalInterop.copyText(code.textContent);
+            button.textContent = 'Copied';
+            setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+        });
+        wrapper.appendChild(button);
+    }
+
     let pasteHandler = null;
 
     window.journalInterop = {
@@ -111,10 +289,46 @@
             init(element, html, autoFocus) {
                 document.execCommand('styleWithCSS', false, true);
                 element.innerHTML = html;
-                element.addEventListener('keydown', handleListIndent);
+                labelCodeBlocks(element);
+                element.addEventListener('keydown', handleEditorKeys);
+                element.addEventListener('paste', handleEditorPaste);
                 if (autoFocus) {
                     element.focus();
                 }
+            },
+
+            insertCodeBlock(element, language) {
+                restoreSelection(element);
+
+                const existing = currentCodeElement();
+                if (existing) {
+                    existing.className = `language-${language}`;
+                    existing.parentElement.dataset.lang = labelFor(language);
+                    return;
+                }
+
+                const selected = document.getSelection().toString().replace(/\r/g, '');
+                const body = selected === '' ? '<br>' : escapeHtml(selected);
+                // The empty paragraph after the block gives the caret somewhere to go when leaving it.
+                document.execCommand(
+                    'insertHTML',
+                    false,
+                    `<pre data-lang="${labelFor(language)}"><code class="language-${language}">${body}</code></pre><p><br></p>`);
+                placeCaretInInsertedBlock();
+            },
+
+            insertInlineCode(element) {
+                restoreSelection(element);
+                const selected = document.getSelection().toString();
+                if (selected === '' || currentCodeElement()) {
+                    return;
+                }
+
+                document.execCommand('insertHTML', false, `<code>${escapeHtml(selected)}</code> `);
+            },
+
+            resetSelect(select) {
+                select.value = '';
             },
 
             exec(element, command, value) {
@@ -125,7 +339,30 @@
 
             getHtml(element) {
                 const isEmpty = element.innerText.trim() === '' && !element.querySelector('img');
-                return isEmpty ? '' : element.innerHTML;
+                if (isEmpty) {
+                    return '';
+                }
+
+                const clone = element.cloneNode(true);
+                cleanCodeBlocks(clone);
+                return clone.innerHTML;
+            }
+        },
+
+        code: {
+            // Called after a note renders; blocks that are already processed are skipped.
+            highlight(container) {
+                container.querySelectorAll('pre > code').forEach(code => {
+                    const pre = code.parentElement;
+                    if (pre.dataset.processed) {
+                        return;
+                    }
+
+                    pre.dataset.processed = 'yes';
+                    pre.dataset.lang = labelFor(languageOf(code));
+                    highlightCode(code, pre);
+                    wrapWithCopyButton(pre, code);
+                });
             }
         },
 
