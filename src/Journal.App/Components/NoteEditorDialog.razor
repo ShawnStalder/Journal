@@ -1,8 +1,9 @@
 @inject NoteHtmlSanitizer Sanitizer
+@inject IJSRuntime Js
 
 <div class="modal-backdrop">
-    <div class="modal @(Type == NoteType.Sql ? "modal-sql" : "modal-text")" role="dialog" aria-modal="true" aria-label="@Heading">
-        <header class="modal-header">
+    <div class="modal @(Type == NoteType.Sql ? "modal-sql" : "modal-text")" role="dialog" aria-modal="true" aria-label="@Heading" @ref="_modal">
+        <header class="modal-header" title="Drag to move" @ref="_header">
             <h2>@Heading</h2>
         </header>
 
@@ -38,6 +39,8 @@
 </div>
 
 @code {
+    private ElementReference _modal;
+    private ElementReference _header;
     private ElementReference _titleInput;
     private RichTextEditor? _richTextEditor;
     private SqlEditor? _sqlEditor;
@@ -82,7 +85,13 @@
     // An existing note's title is read-only (it is part of the file name), so its editor takes focus instead.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && Existing is null)
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("journalInterop.modal.makeDraggable", _modal, _header);
+        if (Existing is null)
         {
             await _titleInput.FocusAsync();
         }

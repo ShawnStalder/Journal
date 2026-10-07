@@ -129,6 +129,68 @@
             }
         },
 
+        modal: {
+            makeDraggable(modal, handle) {
+                let offsetX = 0;
+                let offsetY = 0;
+                let startX = 0;
+                let startY = 0;
+
+                // Keeps at least part of the dialog on screen so it can never be dragged out of reach.
+                const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+                handle.addEventListener('pointerdown', event => {
+                    if (event.button !== 0) {
+                        return;
+                    }
+
+                    startX = event.clientX - offsetX;
+                    startY = event.clientY - offsetY;
+                    handle.setPointerCapture(event.pointerId);
+                    handle.classList.add('dragging');
+                });
+
+                handle.addEventListener('pointermove', event => {
+                    if (!handle.hasPointerCapture(event.pointerId)) {
+                        return;
+                    }
+
+                    const rect = modal.getBoundingClientRect();
+                    const maxX = window.innerWidth - 80 - (rect.left - offsetX);
+                    const minX = 80 - rect.right + offsetX;
+                    const maxY = window.innerHeight - 40 - (rect.top - offsetY);
+                    const minY = -(rect.top - offsetY);
+                    offsetX = clamp(event.clientX - startX, minX, maxX);
+                    offsetY = clamp(event.clientY - startY, minY, maxY);
+                    modal.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                });
+
+                const stop = event => {
+                    handle.classList.remove('dragging');
+                    if (handle.hasPointerCapture(event.pointerId)) {
+                        handle.releasePointerCapture(event.pointerId);
+                    }
+                };
+                handle.addEventListener('pointerup', stop);
+                handle.addEventListener('pointercancel', stop);
+
+                // Clicks stay blocked so an open editor cannot be replaced, but the wheel can scroll the page behind it.
+                const backdrop = modal.parentElement;
+                backdrop.addEventListener('wheel', event => {
+                    if (modal.contains(event.target)) {
+                        return;
+                    }
+
+                    const panel = document.elementsFromPoint(event.clientX, event.clientY)
+                        .find(element => element.classList.contains('panel-body'));
+                    if (panel) {
+                        panel.scrollTop += event.deltaY;
+                    }
+                    event.preventDefault();
+                }, { passive: false });
+            }
+        },
+
         sql: {
             attach(textarea, highlight) {
                 const syncScroll = () => {

@@ -810,3 +810,15 @@ h2 {
 .btn.icon svg {
     display: block;
 }
+
+/* Draggable note editor dialog */
+
+.modal-header {
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+}
+
+.modal-header.dragging {
+    cursor: grabbing;
+}
