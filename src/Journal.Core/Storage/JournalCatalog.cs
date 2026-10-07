@@ -11,17 +11,32 @@ public sealed class JournalCatalog : IJournalCatalog
 
     public string RootPath => _locations.RootPath;
 
+    public string ArchivePath => _locations.ArchivePath;
+
     public IReadOnlyList<string> GetJournalNames()
     {
-        if (!Directory.Exists(_locations.RootPath))
-        {
-            return [];
-        }
-
-        return Directory.EnumerateDirectories(_locations.RootPath)
-            .Select(folder => Path.GetFileName(folder))
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+        return ListJournalFolders(_locations.RootPath)
+            .Where(name => !IsArchiveFolder(name))
             .ToList();
+    }
+
+    public IReadOnlyList<string> GetArchivedJournalNames()
+    {
+        return ListJournalFolders(_locations.ArchivePath).ToList();
+    }
+
+    public void ArchiveJournal(string journalName)
+    {
+        var source = _locations.GetJournalFolder(journalName);
+        var destination = Path.Combine(_locations.ArchivePath, journalName);
+        MoveJournal(source, destination, $"An archived journal named '{journalName}' already exists.");
+    }
+
+    public void RestoreJournal(string journalName)
+    {
+        var source = Path.Combine(_locations.ArchivePath, journalName);
+        var destination = _locations.GetJournalFolder(journalName);
+        MoveJournal(source, destination, $"A journal named '{journalName}' already exists, so the archived one cannot be restored.");
     }
 
     public bool JournalExists(string journalName)
@@ -37,6 +52,11 @@ public sealed class JournalCatalog : IJournalCatalog
             throw new JournalException("Enter a journal name.");
         }
 
+        if (IsArchiveFolder(name))
+        {
+            throw new JournalException($"'{name}' is reserved for archived journals. Choose another name.");
+        }
+
         if (JournalExists(name))
         {
             throw new JournalException($"A journal named '{name}' already exists.");
@@ -48,5 +68,39 @@ public sealed class JournalCatalog : IJournalCatalog
         File.WriteAllText(_locations.GetTasksFile(name), TaskFileFormat.Serialize([]));
 
         return name;
+    }
+
+    private static bool IsArchiveFolder(string name)
+    {
+        return name.Equals(JournalLocations.ArchiveFolderName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> ListJournalFolders(string folder)
+    {
+        if (!Directory.Exists(folder))
+        {
+            return [];
+        }
+
+        return Directory.EnumerateDirectories(folder)
+            .Select(path => Path.GetFileName(path))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static void MoveJournal(string source, string destination, string alreadyExistsMessage)
+    {
+        if (!Directory.Exists(source))
+        {
+            throw new JournalException("That journal no longer exists. It may have been moved elsewhere.");
+        }
+
+        if (Directory.Exists(destination))
+        {
+            throw new JournalException(alreadyExistsMessage);
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        Directory.Move(source, destination);
     }
 }

@@ -20,6 +20,10 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
     Images\              .png / .bmp / .jpg / .jpeg
 ```
 
+- Archived journals live in `<Root>\Archive\<Journal Name>\` (same layout). A journal is identified everywhere by its
+  path relative to the root (`Name` or `Archive\Name`), so stores, watchers and windows need no special cases.
+  `Archive` is a reserved name and is excluded from the normal journal list. The journal page must dispose its file
+  watcher before moving the folder, because the watcher holds it open.
 - Note files are named `yyyy-MM-dd_HHmmss_Title.ext`. The timestamp drives newest-first ordering and the title is shown
   in the UI. Files that do not follow the pattern (added by hand) still load, using the file's last-write time.
 - The root is `JournalLocations.DefaultRootPath` (a UNC path, deliberately hard-coded). The `JOURNAL_ROOT_PATH`

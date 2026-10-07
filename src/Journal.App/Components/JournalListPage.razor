@@ -2,8 +2,8 @@
 @inject IJournalCatalog Catalog
 
 <div class="dialog-page list-page">
-    <h1>Open Journal</h1>
-    <p class="muted"><span class="path">@Catalog.RootPath</span></p>
+    <h1>@(ShowArchived ? "Open Archived Journal" : "Open Journal")</h1>
+    <p class="muted"><span class="path">@(ShowArchived ? Catalog.ArchivePath : Catalog.RootPath)</span></p>
 
     <input class="input" placeholder="Filter journals..." @ref="_filterInput" @bind="_filter" @bind:event="oninput" />
 
@@ -20,7 +20,7 @@
 
     @if (_isLoaded && !FilteredNames.Any())
     {
-        <p class="muted empty">@(_names.Count == 0 ? "No journals yet. Use New Journal from the tray menu." : "No journals match the filter.")</p>
+        <p class="muted empty">@EmptyMessage</p>
     }
 
     <div class="actions">
@@ -36,6 +36,24 @@
 
     [Parameter, EditorRequired]
     public Action<string> OnJournalChosen { get; set; } = default!;
+
+    [Parameter]
+    public bool ShowArchived { get; set; }
+
+    private string EmptyMessage
+    {
+        get
+        {
+            if (_names.Count > 0)
+            {
+                return "No journals match the filter.";
+            }
+
+            return ShowArchived
+                ? "No archived journals. Use the archive button inside a journal to archive it."
+                : "No journals yet. Use New Journal from the tray menu.";
+        }
+    }
 
     private IEnumerable<string> FilteredNames => _names
         .Where(name => name.Contains(_filter.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -55,7 +73,7 @@
 
     private async Task LoadAsync()
     {
-        await RunSafelyAsync(async () => _names = await Task.Run(Catalog.GetJournalNames));
+        await RunSafelyAsync(async () => _names = await Task.Run(() => ShowArchived ? Catalog.GetArchivedJournalNames() : Catalog.GetJournalNames()));
         _isLoaded = true;
     }
 }

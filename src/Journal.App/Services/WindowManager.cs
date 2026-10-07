@@ -3,6 +3,7 @@ using System.Windows;
 using Journal.App.Components;
 using Journal.App.Windows;
 using Journal.Core.Models;
+using Journal.Core.Storage;
 
 namespace Journal.App.Services;
 
@@ -14,7 +15,12 @@ public interface IWindowManager
 
     void ShowOpenJournal();
 
+    void ShowOpenArchivedJournal();
+
+    /// <summary>Opens a journal by key: its name, or "Archive\name" for an archived journal.</summary>
     void ShowJournal(string journalName);
+
+    void CloseJournal(string journalName);
 
     void ShowImage(JournalImage image);
 }
@@ -27,6 +33,7 @@ public sealed class WindowManager : IWindowManager
     private readonly Dictionary<string, ImageViewerWindow> _imageWindows = new(StringComparer.OrdinalIgnoreCase);
     private BlazorWindow? _newJournalWindow;
     private BlazorWindow? _openJournalWindow;
+    private BlazorWindow? _openArchivedJournalWindow;
 
     public WindowManager(IServiceProvider services, ThemeService theme)
     {
@@ -83,6 +90,38 @@ public sealed class WindowManager : IWindowManager
         _openJournalWindow.Show();
     }
 
+    public void ShowOpenArchivedJournal()
+    {
+        if (TryActivate(_openArchivedJournalWindow))
+        {
+            return;
+        }
+
+        _openArchivedJournalWindow = CreateWindow(
+            "Open Archived Journal",
+            typeof(JournalListPage),
+            new Dictionary<string, object?>
+            {
+                [nameof(JournalListPage.ShowArchived)] = true,
+                [nameof(JournalListPage.OnJournalChosen)] = new Action<string>(name =>
+                {
+                    ShowJournal(JournalLocations.GetArchivedKey(name));
+                    CloseLater(_openArchivedJournalWindow);
+                })
+            },
+            520,
+            560);
+        _openArchivedJournalWindow.Show();
+    }
+
+    public void CloseJournal(string journalName)
+    {
+        if (_journalWindows.TryGetValue(journalName, out var window))
+        {
+            CloseLater(window);
+        }
+    }
+
     public void ShowJournal(string journalName)
     {
         if (_journalWindows.TryGetValue(journalName, out var existing))
@@ -91,8 +130,9 @@ public sealed class WindowManager : IWindowManager
             return;
         }
 
+        var archivedSuffix = JournalLocations.IsArchived(journalName) ? " (Archived)" : string.Empty;
         var window = CreateWindow(
-            $"{journalName} - Journal",
+            $"{JournalLocations.GetDisplayName(journalName)}{archivedSuffix} - Journal",
             typeof(JournalPage),
             new Dictionary<string, object?> { [nameof(JournalPage.JournalName)] = journalName },
             1320,

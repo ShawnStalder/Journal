@@ -117,6 +117,7 @@ public partial class App : System.Windows.Application
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("New Journal", null, (_, _) => _services!.GetRequiredService<IWindowManager>().ShowNewJournal());
         menu.Items.Add("Open Journal", null, (_, _) => _services!.GetRequiredService<IWindowManager>().ShowOpenJournal());
+        menu.Items.Add("Open Archived Journal", null, (_, _) => _services!.GetRequiredService<IWindowManager>().ShowOpenArchivedJournal());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(BuildThemeMenuItem(theme));
         menu.Items.Add(BuildAutoStartMenuItem());

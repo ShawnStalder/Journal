@@ -9,9 +9,41 @@
 
 <div class="journal">
     <header class="journal-header">
-        <h1>@JournalName</h1>
+        <h1>
+            @DisplayName
+            @if (IsArchived)
+            {
+                <span class="badge archived-badge">Archived</span>
+            }
+        </h1>
         <div class="header-actions">
-            <button type="button" class="btn icon" title="Refresh" @onclick="() => ReloadAsync()">&#8635;</button>
+            @if (_isConfirmingArchive)
+            {
+                <span class="muted">@(IsArchived ? "Restore this journal?" : "Archive this journal?")</span>
+                <button type="button" class="btn small primary" @onclick="ChangeArchiveStateAsync">@(IsArchived ? "Restore" : "Archive")</button>
+                <button type="button" class="btn small" @onclick="() => _isConfirmingArchive = false">Cancel</button>
+            }
+            else
+            {
+                <button type="button" class="btn icon" title="Refresh" @onclick="() => ReloadAsync()">&#8635;</button>
+                <button type="button" class="btn icon"
+                        title="@(IsArchived ? "Restore journal from archive" : "Archive journal")"
+                        aria-label="@(IsArchived ? "Restore journal from archive" : "Archive journal")"
+                        @onclick="() => _isConfirmingArchive = true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="2" y="3" width="20" height="5" rx="1" />
+                        <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                        @if (IsArchived)
+                        {
+                            <path d="M12 18v-6M9 15l3-3 3 3" />
+                        }
+                        else
+                        {
+                            <path d="M10 12h4" />
+                        }
+                    </svg>
+                </button>
+            }
         </div>
     </header>
 
@@ -53,9 +85,14 @@
     private string? _editorError;
     private IJournalWatcher? _watcher;
     private bool _isDisposed;
+    private bool _isConfirmingArchive;
 
     [Parameter, EditorRequired]
     public string JournalName { get; set; } = string.Empty;
+
+    private bool IsArchived => JournalLocations.IsArchived(JournalName);
+
+    private string DisplayName => JournalLocations.GetDisplayName(JournalName);
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,7 +103,7 @@
     public void Dispose()
     {
         _isDisposed = true;
-        _watcher?.Dispose();
+        StopWatching();
     }
 
     private void StartWatching()
@@ -123,6 +160,46 @@
     {
         await RunSafelyAsync(() => Task.Run(change));
         await ReloadAsync(keepExistingError: true);
+    }
+
+    // The watcher holds the journal folder open, which would block moving it.
+    private async Task ChangeArchiveStateAsync()
+    {
+        _isConfirmingArchive = false;
+        StopWatching();
+
+        await RunSafelyAsync(() => Task.Run(MoveJournal));
+
+        if (ErrorMessage is not null)
+        {
+            StartWatching();
+            return;
+        }
+
+        if (IsArchived)
+        {
+            Windows.ShowJournal(DisplayName);
+        }
+
+        Windows.CloseJournal(JournalName);
+    }
+
+    private void MoveJournal()
+    {
+        if (IsArchived)
+        {
+            Catalog.RestoreJournal(DisplayName);
+        }
+        else
+        {
+            Catalog.ArchiveJournal(JournalName);
+        }
+    }
+
+    private void StopWatching()
+    {
+        _watcher?.Dispose();
+        _watcher = null;
     }
 
     private void StartNote(NoteType type)

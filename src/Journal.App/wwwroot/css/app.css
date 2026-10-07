@@ -791,3 +791,22 @@ h2 {
 * {
     scrollbar-color: var(--border) transparent;
 }
+
+/* Archived journals */
+
+.archived-badge {
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.journal-header .muted {
+    font-size: 13px;
+}
+
+.header-actions {
+    align-items: center;
+}
+
+.btn.icon svg {
+    display: block;
+}
