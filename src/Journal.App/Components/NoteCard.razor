@@ -1,11 +1,25 @@
 @inject NoteHtmlSanitizer Sanitizer
 @inject IJSRuntime Js
 
-<article class="note @(Note.Type == NoteType.Sql ? "note-sql" : "note-text")">
+<article class="note @(Note.Type == NoteType.Sql ? "note-sql" : "note-text") @(IsCollapsed ? "collapsed" : string.Empty)">
     <header class="note-header">
+        <button type="button"
+                class="btn icon small collapse-toggle @(IsCollapsed ? "is-collapsed" : string.Empty)"
+                title="@(IsCollapsed ? "Expand note" : "Collapse note")"
+                aria-label="@(IsCollapsed ? "Expand note" : "Collapse note")"
+                aria-expanded="@(!IsCollapsed)"
+                @onclick="() => OnToggleCollapse.InvokeAsync(Note)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+            </svg>
+        </button>
         <span class="badge">@(Note.Type == NoteType.Sql ? "SQL" : "Text")</span>
-        <h4 class="note-title">@Note.Title</h4>
+        <h4 class="note-title" @onclick="() => OnToggleCollapse.InvokeAsync(Note)">@Note.Title</h4>
         <time class="muted">@Note.CreatedOn.ToString("h:mm tt")</time>
+        @if (ShowModified)
+        {
+            <span class="muted modified-stamp" title="Last modified">edited @Note.ModifiedOn.ToString("MMM d, h:mm tt")</span>
+        }
         <span class="spacer"></span>
 
         @if (Note.Type == NoteType.Sql)
@@ -26,13 +40,16 @@
         }
     </header>
 
-    @if (Note.Type == NoteType.Sql)
+    @if (!IsCollapsed)
     {
-        <pre class="sql-view"><code>@((MarkupString)_renderedContent)</code></pre>
-    }
-    else
-    {
-        <div class="note-body" @ref="_body">@((MarkupString)_renderedContent)</div>
+        @if (Note.Type == NoteType.Sql)
+        {
+            <pre class="sql-view"><code>@((MarkupString)_renderedContent)</code></pre>
+        }
+        else
+        {
+            <div class="note-body" @ref="_body">@((MarkupString)_renderedContent)</div>
+        }
     }
 </article>
 
@@ -45,6 +62,15 @@
 
     [Parameter, EditorRequired]
     public JournalNote Note { get; set; } = default!;
+
+    [Parameter]
+    public bool ShowModified { get; set; }
+
+    [Parameter]
+    public bool IsCollapsed { get; set; }
+
+    [Parameter]
+    public EventCallback<JournalNote> OnToggleCollapse { get; set; }
 
     [Parameter]
     public EventCallback<JournalNote> OnEdit { get; set; }
@@ -67,7 +93,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (Note.Type == NoteType.Text)
+        if (Note.Type == NoteType.Text && !IsCollapsed)
         {
             await Js.InvokeVoidAsync("journalInterop.code.highlight", _body);
         }

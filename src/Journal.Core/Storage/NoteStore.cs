@@ -58,7 +58,7 @@ public sealed partial class NoteStore : INoteStore
         var path = FileNameSanitizer.GetUniquePath(folder, baseName, extension);
         File.WriteAllText(path, content);
 
-        return new JournalNote(type, cleanTitle, ParseCreatedOn(Path.GetFileNameWithoutExtension(path), path), path, content);
+        return new JournalNote(type, cleanTitle, ParseCreatedOn(Path.GetFileNameWithoutExtension(path), path), File.GetLastWriteTime(path), path, content);
     }
 
     public JournalNote UpdateNote(JournalNote note, string content)
@@ -69,7 +69,7 @@ public sealed partial class NoteStore : INoteStore
         }
 
         File.WriteAllText(note.FilePath, content);
-        return note with { Content = content };
+        return note with { Content = content, ModifiedOn = File.GetLastWriteTime(note.FilePath) };
     }
 
     public void DeleteNote(JournalNote note)
@@ -95,7 +95,7 @@ public sealed partial class NoteStore : INoteStore
         var match = NameParts().Match(name);
         var title = match.Success ? match.Groups["title"].Value : name;
 
-        return new JournalNote(type, title, ParseCreatedOn(name, path), path, File.ReadAllText(path));
+        return new JournalNote(type, title, ParseCreatedOn(name, path), File.GetLastWriteTime(path), path, File.ReadAllText(path));
     }
 
     // Files dropped in by hand may not follow the naming pattern, so fall back to the file's own timestamp.

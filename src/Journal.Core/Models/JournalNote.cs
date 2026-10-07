@@ -4,6 +4,7 @@ public sealed record JournalNote(
     NoteType Type,
     string Title,
     DateTime CreatedOn,
+    DateTime ModifiedOn,
     string FilePath,
     string Content)
 {

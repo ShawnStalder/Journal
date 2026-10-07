@@ -6,6 +6,9 @@
 @inject IImageStore ImageStore
 @inject IJournalWatcherFactory WatcherFactory
 @inject IWindowManager Windows
+@inject AppSettings Settings
+@inject SettingsStore SettingsStore
+@using Journal.Core.State
 
 <div class="journal">
     <header class="journal-header">
@@ -51,6 +54,8 @@
 
     <main class="journal-body">
         <NotesPanel Notes="_notes"
+                    SortOrder="Settings.NoteSortOrder"
+                    OnSortChanged="ChangeSortOrder"
                     OnNew="StartNote"
                     OnEdit="EditNote"
                     OnDelete="DeleteNoteAsync" />
@@ -200,6 +205,23 @@
     {
         _watcher?.Dispose();
         _watcher = null;
+    }
+
+    private void ChangeSortOrder(NoteSortOrder order)
+    {
+        Settings.NoteSortOrder = order;
+        try
+        {
+            SettingsStore.Save(Settings);
+        }
+        catch (IOException exception)
+        {
+            ErrorMessage = $"The sort order could not be remembered: {exception.Message}";
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            ErrorMessage = $"The sort order could not be remembered: {exception.Message}";
+        }
     }
 
     private void StartNote(NoteType type)

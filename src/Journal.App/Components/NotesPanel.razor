@@ -3,6 +3,18 @@
         <h2>Notes</h2>
         <span class="count">@Notes.Count</span>
         <span class="spacer"></span>
+        <label class="sort-picker muted">
+            Sort
+            <select class="input small" title="Sort notes" value="@SortOrder" @onchange="OnSortChangedAsync">
+                <option value="@NoteSortOrder.DateCreated">Date created (newest)</option>
+                <option value="@NoteSortOrder.LastModified">Last modified (newest)</option>
+                <option value="@NoteSortOrder.Type">Type</option>
+            </select>
+        </label>
+        <span class="header-divider"></span>
+        <button type="button" class="btn small" title="Collapse every note to just its header" disabled="@(Notes.Count == 0)" @onclick="CollapseAll">Collapse all</button>
+        <button type="button" class="btn small" title="Expand every note" disabled="@(Notes.Count == 0)" @onclick="ExpandAll">Expand all</button>
+        <span class="header-divider"></span>
         <button type="button" class="btn small primary" @onclick="() => OnNew.InvokeAsync(NoteType.Text)">New Note</button>
         <button type="button" class="btn small" @onclick="() => OnNew.InvokeAsync(NoteType.Sql)">New SQL</button>
     </header>
@@ -12,20 +24,35 @@
             <p class="muted empty">No notes yet. Add one with New Note or New SQL.</p>
         }
 
-        @foreach (var day in Notes.GroupBy(note => note.CreatedOn.Date))
+        @foreach (var group in GetGroups())
         {
-            <h3 class="day-heading" @key="day.Key">@FormatDay(day.Key)</h3>
-            @foreach (var note in day)
+            <h3 class="day-heading" @key="group.Heading">@group.Heading</h3>
+            @foreach (var note in group.Notes)
             {
-                <NoteCard @key="note.FilePath" Note="note" OnEdit="OnEdit" OnDelete="OnDelete" />
+                <NoteCard @key="note.FilePath"
+                          Note="note"
+                          ShowModified="@(SortOrder == NoteSortOrder.LastModified)"
+                          IsCollapsed="_collapsedNotes.Contains(note.FilePath)"
+                          OnToggleCollapse="ToggleCollapse"
+                          OnEdit="OnEdit"
+                          OnDelete="OnDelete" />
             }
         }
     </div>
 </section>
 
 @code {
+    // Keyed by file path so a note stays collapsed when the list reloads; notes added later start expanded.
+    private readonly HashSet<string> _collapsedNotes = new(StringComparer.OrdinalIgnoreCase);
+
     [Parameter, EditorRequired]
     public IReadOnlyList<JournalNote> Notes { get; set; } = [];
+
+    [Parameter]
+    public NoteSortOrder SortOrder { get; set; }
+
+    [Parameter]
+    public EventCallback<NoteSortOrder> OnSortChanged { get; set; }
 
     [Parameter]
     public EventCallback<NoteType> OnNew { get; set; }
@@ -35,6 +62,51 @@
 
     [Parameter]
     public EventCallback<JournalNote> OnDelete { get; set; }
+
+    private sealed record NoteGroup(string Heading, IReadOnlyList<JournalNote> Notes);
+
+    private IEnumerable<NoteGroup> GetGroups()
+    {
+        var sorted = NoteSorter.Sort(Notes, SortOrder);
+
+        return SortOrder switch
+        {
+            NoteSortOrder.Type => sorted
+                .GroupBy(note => note.Type)
+                .Select(group => new NoteGroup(group.Key == NoteType.Sql ? "SQL notes" : "Text notes", group.ToList())),
+            NoteSortOrder.LastModified => sorted
+                .GroupBy(note => note.ModifiedOn.Date)
+                .Select(group => new NoteGroup(FormatDay(group.Key), group.ToList())),
+            _ => sorted
+                .GroupBy(note => note.CreatedOn.Date)
+                .Select(group => new NoteGroup(FormatDay(group.Key), group.ToList()))
+        };
+    }
+
+    private Task OnSortChangedAsync(ChangeEventArgs e)
+    {
+        return Enum.TryParse<NoteSortOrder>(e.Value?.ToString(), out var order)
+            ? OnSortChanged.InvokeAsync(order)
+            : Task.CompletedTask;
+    }
+
+    private void CollapseAll()
+    {
+        _collapsedNotes.UnionWith(Notes.Select(note => note.FilePath));
+    }
+
+    private void ExpandAll()
+    {
+        _collapsedNotes.Clear();
+    }
+
+    private void ToggleCollapse(JournalNote note)
+    {
+        if (!_collapsedNotes.Remove(note.FilePath))
+        {
+            _collapsedNotes.Add(note.FilePath);
+        }
+    }
 
     private static string FormatDay(DateTime date)
     {

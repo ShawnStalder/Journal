@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Journal.Core.Models;
 
 namespace Journal.Core.State;
 
@@ -8,6 +10,9 @@ public sealed class AppSettings
 
     /// <summary>True once the app has offered start-with-Windows, so a later opt-out is respected.</summary>
     public bool HasConfiguredAutoStart { get; set; }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public NoteSortOrder NoteSortOrder { get; set; } = NoteSortOrder.DateCreated;
 }
 
 public sealed class SettingsStore

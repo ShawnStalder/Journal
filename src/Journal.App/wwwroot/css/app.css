@@ -955,3 +955,47 @@ h2 {
 .hljs-meta {
     color: var(--muted);
 }
+
+/* Collapsible notes */
+
+.collapse-toggle svg {
+    transition: transform 0.12s ease;
+}
+
+.collapse-toggle.is-collapsed svg {
+    transform: rotate(-90deg);
+}
+
+.note-title {
+    cursor: pointer;
+}
+
+.note.collapsed {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    padding-top: 6px;
+}
+
+.header-divider {
+    align-self: stretch;
+    background: var(--border);
+    margin: 2px 4px;
+    width: 1px;
+}
+
+/* Note sorting */
+
+.panel-header {
+    flex-wrap: wrap;
+}
+
+.sort-picker {
+    align-items: center;
+    display: inline-flex;
+    font-size: 12px;
+    gap: 6px;
+}
+
+.modified-stamp {
+    font-size: 12px;
+}
