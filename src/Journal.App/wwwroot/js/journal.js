@@ -201,6 +201,13 @@
         document.execCommand('insertText', false, text);
     }
 
+    // Code is not prose, so it should not get red squiggles. The attribute is editor-only and removed again on save.
+    function disableSpellcheckInCode(root) {
+        root.querySelectorAll('pre, code').forEach(element => {
+            element.spellcheck = false;
+        });
+    }
+
     function labelCodeBlocks(root) {
         root.querySelectorAll('pre > code').forEach(code => {
             code.parentElement.dataset.lang = labelFor(languageOf(code));
@@ -290,6 +297,7 @@
                 document.execCommand('styleWithCSS', false, true);
                 element.innerHTML = html;
                 labelCodeBlocks(element);
+                disableSpellcheckInCode(element);
                 element.addEventListener('keydown', handleEditorKeys);
                 element.addEventListener('paste', handleEditorPaste);
                 if (autoFocus) {
@@ -314,6 +322,7 @@
                     'insertHTML',
                     false,
                     `<pre data-lang="${labelFor(language)}"><code class="language-${language}">${body}</code></pre><p><br></p>`);
+                disableSpellcheckInCode(element);
                 placeCaretInInsertedBlock();
             },
 
@@ -325,6 +334,7 @@
                 }
 
                 document.execCommand('insertHTML', false, `<code>${escapeHtml(selected)}</code> `);
+                disableSpellcheckInCode(element);
             },
 
             resetSelect(select) {
@@ -345,6 +355,7 @@
 
                 const clone = element.cloneNode(true);
                 cleanCodeBlocks(clone);
+                clone.querySelectorAll('[spellcheck]').forEach(node => node.removeAttribute('spellcheck'));
                 return clone.innerHTML;
             }
         },
@@ -367,6 +378,21 @@
         },
 
         modal: {
+            // Tab from the title goes straight to the editor instead of through every toolbar control.
+            skipToEditor(titleInput, modal) {
+                titleInput.addEventListener('keydown', event => {
+                    if (event.key !== 'Tab' || event.shiftKey) {
+                        return;
+                    }
+
+                    const editor = modal.querySelector('.rte-surface, .sql-input');
+                    if (editor) {
+                        event.preventDefault();
+                        editor.focus();
+                    }
+                });
+            },
+
             makeDraggable(modal, handle) {
                 let offsetX = 0;
                 let offsetY = 0;

@@ -91,6 +91,7 @@
         }
 
         await Js.InvokeVoidAsync("journalInterop.modal.makeDraggable", _modal, _header);
+        await Js.InvokeVoidAsync("journalInterop.modal.skipToEditor", _titleInput, _modal);
         if (Existing is null)
         {
             await _titleInput.FocusAsync();
