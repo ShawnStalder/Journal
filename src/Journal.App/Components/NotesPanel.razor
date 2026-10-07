@@ -12,8 +12,18 @@
             </select>
         </label>
         <span class="header-divider"></span>
-        <button type="button" class="btn small" title="Collapse every note to just its header" disabled="@(Notes.Count == 0)" @onclick="CollapseAll">Collapse all</button>
-        <button type="button" class="btn small" title="Expand every note" disabled="@(Notes.Count == 0)" @onclick="ExpandAll">Expand all</button>
+        <button type="button" class="btn icon small" title="Collapse all notes" aria-label="Collapse all notes" disabled="@(Notes.Count == 0)" @onclick="CollapseAll">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 11l6-6 6 6" />
+                <path d="M6 20l6-6 6 6" />
+            </svg>
+        </button>
+        <button type="button" class="btn icon small" title="Expand all notes" aria-label="Expand all notes" disabled="@(Notes.Count == 0)" @onclick="ExpandAll">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 4l6 6 6-6" />
+                <path d="M6 13l6 6 6-6" />
+            </svg>
+        </button>
         <span class="header-divider"></span>
         <button type="button" class="btn small primary" @onclick="() => OnNew.InvokeAsync(NoteType.Text)">New Note</button>
         <button type="button" class="btn small" @onclick="() => OnNew.InvokeAsync(NoteType.Sql)">New SQL</button>
