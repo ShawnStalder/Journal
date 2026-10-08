@@ -405,8 +405,19 @@ h2 {
     margin: 8px 0 4px;
 }
 
-.note-body h1 {
+.note-body h1,
+.rte-surface h1 {
     font-size: 18px;
+}
+
+.note-body h2,
+.rte-surface h2 {
+    font-size: 16px;
+}
+
+.note-body h3,
+.rte-surface h3 {
+    font-size: 15px;
 }
 
 .note-body p {
