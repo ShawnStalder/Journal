@@ -11,5 +11,8 @@ public interface INoteStore
 
     JournalNote UpdateNote(JournalNote note, string content);
 
+    /// <summary>Renames the note's file, keeping its timestamp so it stays in the same place in the list.</summary>
+    JournalNote RenameNote(JournalNote note, string title);
+
     void DeleteNote(JournalNote note);
 }

@@ -32,8 +32,16 @@
         if (editor) {
             lastEditor = editor;
             lastRange = range.cloneRange();
+            markTableContext(editor, range);
         }
     });
+
+    // Lets the toolbar enable its table tools only while the caret is inside a table cell.
+    function markTableContext(editor, range) {
+        const start = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+        const cell = start ? start.closest('td, th') : null;
+        editor.closest('.rte')?.classList.toggle('in-table', Boolean(cell && editor.contains(cell)));
+    }
 
     function restoreSelection(element) {
         element.focus();
@@ -236,7 +244,7 @@
         const code = currentCodeElement();
         if (code) {
             handleCodeKey(event, code);
-        } else if (!handleListShortcut(event)) {
+        } else if (!window.journalInterop.table.handleKey(event) && !handleListShortcut(event)) {
             handleListIndent(event);
         }
     }
@@ -244,6 +252,7 @@
     // Code is always pasted as plain text so formatting from the source never leaks into the block.
     function handleEditorPaste(event) {
         if (!currentCodeElement()) {
+            window.journalInterop.table.handlePaste(event);
             return;
         }
 
@@ -389,6 +398,10 @@
                 disableSpellcheckInCode(element);
             },
 
+            restoreSelection(element) {
+                restoreSelection(element);
+            },
+
             resetSelect(select) {
                 select.value = '';
             },
@@ -445,7 +458,7 @@
                 });
             },
 
-            makeDraggable(modal, handle) {
+            makeDraggable(modal, handle, grip, sizeKey) {
                 let offsetX = 0;
                 let offsetY = 0;
                 let startX = 0;
@@ -488,6 +501,75 @@
                 };
                 handle.addEventListener('pointerup', stop);
                 handle.addEventListener('pointercancel', stop);
+
+                const minWidth = 480;
+                const minHeight = 320;
+                const screenMargin = 48;
+                const sizeStorageKey = `journal-modal-size:${sizeKey}`;
+
+                const applySize = (width, height) => {
+                    const maxWidth = Math.max(minWidth, window.innerWidth - screenMargin);
+                    const maxHeight = Math.max(minHeight, window.innerHeight - screenMargin);
+                    modal.style.width = `${clamp(width, minWidth, maxWidth)}px`;
+                    modal.style.height = `${clamp(height, minHeight, maxHeight)}px`;
+                };
+
+                try {
+                    const saved = JSON.parse(localStorage.getItem(sizeStorageKey));
+                    if (saved && saved.width && saved.height) {
+                        applySize(saved.width, saved.height);
+                    }
+                } catch (error) {
+                    // A remembered size is only a convenience.
+                }
+
+                let resizeStart = null;
+
+                grip.addEventListener('pointerdown', event => {
+                    if (event.button !== 0) {
+                        return;
+                    }
+
+                    const rect = modal.getBoundingClientRect();
+                    resizeStart = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
+                    grip.setPointerCapture(event.pointerId);
+                    event.preventDefault();
+                });
+
+                grip.addEventListener('pointermove', event => {
+                    if (!resizeStart) {
+                        return;
+                    }
+
+                    const before = modal.getBoundingClientRect();
+                    applySize(resizeStart.width + event.clientX - resizeStart.x, resizeStart.height + event.clientY - resizeStart.y);
+                    const after = modal.getBoundingClientRect();
+
+                    // The dialog is centered, so growing it moves its top-left corner; shifting it back keeps the grip under the pointer.
+                    offsetX += (after.width - before.width) / 2;
+                    offsetY += (after.height - before.height) / 2;
+                    modal.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                });
+
+                const stopResize = event => {
+                    if (!resizeStart) {
+                        return;
+                    }
+
+                    resizeStart = null;
+                    if (grip.hasPointerCapture(event.pointerId)) {
+                        grip.releasePointerCapture(event.pointerId);
+                    }
+
+                    const rect = modal.getBoundingClientRect();
+                    try {
+                        localStorage.setItem(sizeStorageKey, JSON.stringify({ width: Math.round(rect.width), height: Math.round(rect.height) }));
+                    } catch (error) {
+                        // The size is simply not remembered.
+                    }
+                };
+                grip.addEventListener('pointerup', stopResize);
+                grip.addEventListener('pointercancel', stopResize);
 
                 // Clicks stay blocked so an open editor cannot be replaced, but the wheel can scroll the page behind it.
                 const backdrop = modal.parentElement;

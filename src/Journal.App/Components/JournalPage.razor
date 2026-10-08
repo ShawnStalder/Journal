@@ -270,7 +270,8 @@
         }
         else
         {
-            NoteStore.UpdateNote(request.Existing, content);
+            var updated = NoteStore.UpdateNote(request.Existing, content);
+            NoteStore.RenameNote(updated, title);
         }
     }
 

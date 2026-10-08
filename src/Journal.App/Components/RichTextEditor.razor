@@ -51,6 +51,46 @@
             </select>
             <button type="button" class="btn icon small" title="Inline code (select text first)" @onmousedown:preventDefault @onclick="InsertInlineCodeAsync">&lt;/&gt;</button>
         </span>
+
+        <span class="rte-group rte-table-insert">
+            <button type="button" class="btn small" title="Insert a table" aria-expanded="@(_isTablePickerOpen ? "true" : "false")" @onmousedown:preventDefault @onclick="ToggleTablePicker">Table</button>
+            @if (_isTablePickerOpen)
+            {
+                <div class="rte-table-picker" @onmouseleave="CloseTablePicker">
+                    <div class="rte-table-grid">
+                        @foreach (var row in Enumerable.Range(1, PickerRows))
+                        {
+                            @foreach (var column in Enumerable.Range(1, PickerColumns))
+                            {
+                                <button type="button"
+                                        class="rte-table-square @(row <= _hoverRows && column <= _hoverColumns ? "active" : string.Empty)"
+                                        aria-label="@row rows by @column columns"
+                                        @onmousedown:preventDefault
+                                        @onmouseover="() => Hover(row, column)"
+                                        @onclick="() => InsertTableAsync(row, column)"></button>
+                            }
+                        }
+                    </div>
+                    <div class="muted rte-table-size">@_hoverRows x @_hoverColumns</div>
+                </div>
+            }
+        </span>
+
+        <span class="rte-group rte-table-tools" title="Table tools (place the cursor in a table)">
+            <select class="input small" title="Change the table the cursor is in" @ref="_tableSelect" @onchange="OnTableActionChosenAsync">
+                <option value="">Table tools...</option>
+                @foreach (var action in TableActions)
+                {
+                    <option value="@action.Id">@action.Label</option>
+                }
+            </select>
+            <span class="rte-label" title="Cell shading">Cell</span>
+            @foreach (var color in HighlightColors)
+            {
+                <button type="button" class="swatch" style="background:@color" title="Shade cell @color" aria-label="Shade cell @color" @onmousedown:preventDefault @onclick="() => ShadeCellAsync(color)"></button>
+            }
+            <button type="button" class="btn icon small" title="Remove cell shading" @onmousedown:preventDefault @onclick='() => ShadeCellAsync(string.Empty)'>&#8856;</button>
+        </span>
     </div>
 
     <div class="rte-surface" contenteditable="true" spellcheck="true" @ref="_surface"></div>
@@ -60,8 +100,27 @@
     private static readonly string[] TextColors = ["#e53935", "#fb8c00", "#43a047", "#1e88e5", "#8e24aa", "#757575"];
     private static readonly string[] HighlightColors = ["#fff176", "#a5d6a7", "#f48fb1", "#81d4fa"];
 
+    private const int PickerRows = 6;
+    private const int PickerColumns = 8;
+
+    private static readonly (string Id, string Label)[] TableActions =
+    [
+        ("addRowAbove", "Add row above"),
+        ("addRowBelow", "Add row below"),
+        ("addColumnLeft", "Add column left"),
+        ("addColumnRight", "Add column right"),
+        ("deleteRow", "Delete row"),
+        ("deleteColumn", "Delete column"),
+        ("toggleHeader", "Toggle header row"),
+        ("deleteTable", "Delete table")
+    ];
+
     private ElementReference _surface;
     private ElementReference _codeSelect;
+    private ElementReference _tableSelect;
+    private bool _isTablePickerOpen;
+    private int _hoverRows = 3;
+    private int _hoverColumns = 3;
 
     [Parameter]
     public string InitialHtml { get; set; } = string.Empty;
@@ -102,6 +161,39 @@
     private async Task InsertInlineCodeAsync()
     {
         await Js.InvokeVoidAsync("journalInterop.rte.insertInlineCode", _surface);
+    }
+
+    private void ToggleTablePicker() => _isTablePickerOpen = !_isTablePickerOpen;
+
+    private void CloseTablePicker() => _isTablePickerOpen = false;
+
+    private void Hover(int rows, int columns)
+    {
+        _hoverRows = rows;
+        _hoverColumns = columns;
+    }
+
+    private async Task InsertTableAsync(int rows, int columns)
+    {
+        _isTablePickerOpen = false;
+        await Js.InvokeVoidAsync("journalInterop.table.insert", _surface, rows, columns);
+    }
+
+    private async Task OnTableActionChosenAsync(ChangeEventArgs e)
+    {
+        var action = e.Value?.ToString();
+        if (string.IsNullOrEmpty(action))
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("journalInterop.table.exec", _surface, action, null);
+        await Js.InvokeVoidAsync("journalInterop.rte.resetSelect", _tableSelect);
+    }
+
+    private Task ShadeCellAsync(string color)
+    {
+        return Js.InvokeVoidAsync("journalInterop.table.exec", _surface, "shade", color).AsTask();
     }
 
     private Task OnBlockChangedAsync(ChangeEventArgs e)

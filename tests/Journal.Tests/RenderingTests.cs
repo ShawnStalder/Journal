@@ -20,6 +20,31 @@ public sealed class RenderingTests
     }
 
     [Fact]
+    public void Sanitize_KeepsTablesWithHeaderSpanAndShading()
+    {
+        var html = "<table><tbody><tr><th colspan=\"2\">Head</th></tr><tr><td style=\"background-color: #fff176;\">a</td><td>b</td></tr></tbody></table>";
+
+        var result = _sanitizer.Sanitize(html);
+
+        Assert.Contains("<table>", result);
+        Assert.Contains("<th colspan=\"2\">Head</th>", result);
+        Assert.Contains("background-color", result);
+        Assert.Contains("<td>b</td>", result);
+    }
+
+    [Fact]
+    public void Sanitize_RemovesScriptAndHandlersInsideTableCells()
+    {
+        var html = "<table><tr><td onclick=\"steal()\">x<script>alert(1)</script></td></tr></table>";
+
+        var result = _sanitizer.Sanitize(html);
+
+        Assert.Contains("<td>x</td>", result);
+        Assert.DoesNotContain("script", result);
+        Assert.DoesNotContain("onclick", result);
+    }
+
+    [Fact]
     public void Sanitize_RemovesScriptsAndEventHandlers()
     {
         var html = "<p onclick=\"steal()\">hi</p><script>alert(1)</script><img src=\"x\" onerror=\"steal()\">";

@@ -15,7 +15,6 @@
                        @bind="_title"
                        @bind:event="oninput"
                        maxlength="80"
-                       disabled="@(Existing is not null)"
                        placeholder="Optional - used in the file name" />
             </label>
 
@@ -36,6 +35,8 @@
             <ErrorBanner Message="@ErrorMessage" />
         </div>
 
+        <div class="modal-resize-grip" title="Drag to resize" aria-hidden="true" @ref="_resizeGrip"></div>
+
         <footer class="modal-footer">
             <button type="button" class="btn primary" disabled="@_isSaving" @onclick="SaveAsync">Save</button>
             <button type="button" class="btn" disabled="@_isSaving" @onclick="OnCancel">Cancel</button>
@@ -46,6 +47,7 @@
 @code {
     private ElementReference _modal;
     private ElementReference _header;
+    private ElementReference _resizeGrip;
     private ElementReference _titleInput;
     private RichTextEditor? _richTextEditor;
     private SqlEditor? _sqlEditor;
@@ -99,7 +101,7 @@
         _initialHtml = Type == NoteType.Text ? Sanitizer.Sanitize(Existing.Content) : string.Empty;
     }
 
-    // An existing note's title is read-only (it is part of the file name), so its editor takes focus instead.
+    // An existing note already has a title, so its editor takes focus; the title can still be changed by clicking it.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -107,7 +109,7 @@
             return;
         }
 
-        await Js.InvokeVoidAsync("journalInterop.modal.makeDraggable", _modal, _header);
+        await Js.InvokeVoidAsync("journalInterop.modal.makeDraggable", _modal, _header, _resizeGrip, ModalClass);
         await Js.InvokeVoidAsync("journalInterop.modal.skipToEditor", _titleInput, _modal);
         if (Existing is null)
         {

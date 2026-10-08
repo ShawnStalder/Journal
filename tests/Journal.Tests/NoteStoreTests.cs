@@ -99,6 +99,117 @@ public sealed class NoteStoreTests
         Assert.Equal("Untitled", note.Title);
     }
 
+    [Theory]
+    [InlineData(NoteType.Text, ".html")]
+    [InlineData(NoteType.Sql, ".sql")]
+    [InlineData(NoteType.Diagram, ".mmd")]
+    public void RenameNote_RenamesTheFileKeepingTimestampExtensionAndContent(NoteType type, string extension)
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+        var note = store.AddNote(journal, type, "Old name", "body");
+        root.Clock.Advance(TimeSpan.FromHours(1));
+
+        var renamed = store.RenameNote(note, "New name");
+
+        Assert.Equal("New name", renamed.Title);
+        Assert.Equal(Path.Combine(Path.GetDirectoryName(note.FilePath)!, $"2026-10-06_143000_New name{extension}"), renamed.FilePath);
+        Assert.False(File.Exists(note.FilePath));
+        Assert.Equal("body", File.ReadAllText(renamed.FilePath));
+        Assert.Equal(note.CreatedOn, Assert.Single(store.GetNotes(journal)).CreatedOn);
+    }
+
+    [Fact]
+    public void RenameNote_DoesNothingWhenTheTitleIsUnchanged()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+        var note = store.AddNote(journal, NoteType.Text, "Same", "body");
+
+        var renamed = store.RenameNote(note, "  Same ");
+
+        Assert.Equal(note.FilePath, renamed.FilePath);
+        Assert.True(File.Exists(note.FilePath));
+    }
+
+    [Fact]
+    public void RenameNote_AvoidsOverwritingAnotherNoteWithTheSameName()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+        var first = store.AddNote(journal, NoteType.Text, "Taken", "one");
+        var second = store.AddNote(journal, NoteType.Text, "Other", "two");
+
+        var renamed = store.RenameNote(second, "Taken");
+
+        Assert.NotEqual(first.FilePath, renamed.FilePath);
+        Assert.Equal("one", File.ReadAllText(first.FilePath));
+        Assert.Equal("two", File.ReadAllText(renamed.FilePath));
+    }
+
+    [Fact]
+    public void RenameNote_AllowsAChangeOfLetterCaseOnly()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+        var note = store.AddNote(journal, NoteType.Text, "idea", "body");
+
+        var renamed = store.RenameNote(note, "Idea");
+
+        Assert.Equal("Idea", renamed.Title);
+        Assert.EndsWith("_Idea.html", renamed.FilePath);
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(renamed.FilePath)!));
+    }
+
+    [Fact]
+    public void RenameNote_FallsBackToTheDefaultTitleAndCleansInvalidCharacters()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+        var note = store.AddNote(journal, NoteType.Diagram, "Flow", "pie");
+
+        var blank = store.RenameNote(note, "   ");
+        var cleaned = store.RenameNote(blank, "A/B: plan?");
+
+        Assert.Equal("Untitled diagram", blank.Title);
+        Assert.Equal("A B plan", cleaned.Title);
+    }
+
+    [Fact]
+    public void RenameNote_GivesHandAddedFilesATimestampWhenTheyAreRenamed()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var path = Path.Combine(root.Locations.GetSqlFolder(journal), "adhoc.sql");
+        File.WriteAllText(path, "SELECT 2");
+        var store = new NoteStore(root.Locations, root.Clock);
+        var note = Assert.Single(store.GetNotes(journal));
+
+        Assert.Same(note, store.RenameNote(note, "adhoc"));
+        var renamed = store.RenameNote(note, "Monthly totals");
+
+        Assert.Matches(@"\d{4}-\d{2}-\d{2}_\d{6}_Monthly totals\.sql$", renamed.FilePath);
+        var reloaded = Assert.Single(store.GetNotes(journal));
+        Assert.True(Math.Abs((reloaded.CreatedOn - note.CreatedOn).TotalSeconds) < 1);
+    }
+
+    [Fact]
+    public void RenameNote_ThrowsWhenTheNoteWasRemoved()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+        var note = store.AddNote(journal, NoteType.Text, "Gone", "x");
+        File.Delete(note.FilePath);
+
+        Assert.Throws<JournalException>(() => store.RenameNote(note, "Other"));
+    }
+
     [Fact]
     public void AddNote_DoesNotOverwriteANoteSavedInTheSameSecond()
     {

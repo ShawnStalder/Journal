@@ -27,6 +27,7 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
   watcher before moving the folder, because the watcher holds it open.
 - Note files are named `yyyy-MM-dd_HHmmss_Title.ext`. The timestamp drives newest-first ordering and the title is shown
   in the UI. Files that do not follow the pattern (added by hand) still load, using the file's last-write time.
+  Editing a note can change its title, which renames the file but keeps the timestamp (`INoteStore.RenameNote`).
 - The root is `JournalLocations.DefaultRootPath` (a UNC path, deliberately hard-coded). The `JOURNAL_ROOT_PATH`
   environment variable overrides it for development and tests only.
 - `.tsk` writes re-read the file, apply one change and replace it via a temp file, so edits made by another process are
@@ -47,6 +48,12 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
   as "something changed".
 - **Rich text**: `contenteditable` plus `document.execCommand` in `wwwroot/js/journal.js`. Saved HTML is sanitized
   (`NoteHtmlSanitizer`) before it is displayed or loaded back into the editor.
+- **Tables in text notes**: plain `<table>` HTML, so nothing changes on disk and the sanitizer needs no special rules.
+  `wwwroot/js/tables.js` does the editing (insert, add/delete row and column, header toggle, cell shading, Tab between
+  cells). Browsers have no row/column commands, so each change is made on a copy of the table and put back with
+  `insertHTML`, which keeps it one undo step. `journal.js` calls `table.handleKey` and `table.handlePaste` from its editor
+  listeners and sets an `in-table` class on `.rte` that enables the toolbar's table tools. Pasted tables (Excel, Word,
+  web) are reduced to structure and text. Merged cells display but are not supported by the row/column commands.
 - **Code blocks in text notes**: stored as `<pre><code class="language-xxx">` with plain text only (no highlighting markup).
   The editor inserts and cleans them in `journal.js` (`rte.insertCodeBlock`, `cleanCodeBlocks`; Enter inserts a newline,
   Tab inserts spaces, Ctrl+Enter leaves the block, paste is plain text). Highlighting and the Copy button are added at

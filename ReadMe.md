@@ -5,7 +5,7 @@
 A system-tray journal for tracking daily work, tasks, longer-term projects and miscellaneous notes. Each **journal** is a
 container of:
 
-- **Text notes** - rich text (bold, italic, underline, colors, highlights, lists, headings), saved as `.html`.
+- **Text notes** - rich text (bold, italic, underline, colors, highlights, lists, headings, code blocks, tables), saved as `.html`.
 - **SQL notes** - syntax-highlighted, saved as `.sql`. They are stored and copied only; the application never executes SQL.
 - **Diagram notes** - Mermaid diagrams with a live preview, templates, syntax help, pan/zoom and copy as SVG or PNG, saved as `.mmd`.
 - **Tasks** - a checklist with the date and time each task was completed, saved in `JournalTasks.tsk`.

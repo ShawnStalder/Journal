@@ -623,6 +623,7 @@ h2 {
     flex-direction: column;
     height: min(720px, 100%);
     max-width: 100%;
+    position: relative;
     width: min(900px, 100%);
 }
 
@@ -1160,6 +1161,13 @@ h2 {
     white-space: pre;
 }
 
+/* Mermaid arrows such as --> and ==> must read as typed, so ligatures are off here and in the help examples. */
+.diagram-input,
+.diagram-help-code {
+    font-feature-settings: "calt" 0, "liga" 0;
+    font-variant-ligatures: none;
+}
+
 .diagram-input:focus {
     border-color: var(--accent);
     outline: 1px solid var(--accent);
@@ -1223,4 +1231,93 @@ h2 {
     margin: 6px 0;
     overflow: auto;
     padding: 8px 12px;
+}
+
+/* Tables in text notes (display and editor) */
+
+.note-body table,
+.rte-surface table {
+    border-collapse: collapse;
+    margin: 8px 0;
+    max-width: 100%;
+}
+
+.note-body th,
+.note-body td,
+.rte-surface th,
+.rte-surface td {
+    border: 1px solid var(--border);
+    min-width: 48px;
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.note-body th,
+.rte-surface th {
+    background: var(--panel-raised);
+    font-weight: 600;
+}
+
+/* Table toolbar controls */
+
+.rte-table-insert {
+    position: relative;
+}
+
+.rte-table-picker {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    left: 0;
+    padding: 8px;
+    position: absolute;
+    top: 100%;
+    z-index: 5;
+}
+
+.rte-table-grid {
+    display: grid;
+    gap: 2px;
+    grid-template-columns: repeat(8, 18px);
+}
+
+.rte-table-square {
+    background: transparent;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    height: 18px;
+    padding: 0;
+    width: 18px;
+}
+
+.rte-table-square.active {
+    background: var(--highlight);
+    border-color: var(--accent);
+}
+
+.rte-table-size {
+    font-size: 12px;
+    margin-top: 6px;
+    text-align: center;
+}
+
+.rte:not(.in-table) .rte-table-tools {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* Resizable note editor dialog */
+
+.modal-resize-grip {
+    background: linear-gradient(135deg, transparent 50%, var(--muted) 50%, var(--muted) 58%, transparent 58%, transparent 72%, var(--muted) 72%, var(--muted) 80%, transparent 80%);
+    bottom: 2px;
+    cursor: nwse-resize;
+    height: 14px;
+    position: absolute;
+    right: 2px;
+    touch-action: none;
+    width: 14px;
+    z-index: 1;
 }

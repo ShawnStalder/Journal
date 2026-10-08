@@ -71,6 +71,40 @@ public sealed partial class NoteStore : INoteStore
         return note with { Content = content, ModifiedOn = File.GetLastWriteTime(note.FilePath) };
     }
 
+    public JournalNote RenameNote(JournalNote note, string title)
+    {
+        if (!File.Exists(note.FilePath))
+        {
+            throw new JournalException("That note no longer exists. It may have been removed elsewhere.");
+        }
+
+        var kind = Kinds.Single(candidate => candidate.Type == note.Type);
+        var cleanTitle = FileNameSanitizer.Sanitize(title);
+        if (cleanTitle.Length == 0)
+        {
+            cleanTitle = kind.DefaultTitle;
+        }
+
+        if (cleanTitle == note.Title)
+        {
+            return note;
+        }
+
+        var folder = Path.GetDirectoryName(note.FilePath)!;
+        var baseName = $"{note.CreatedOn.ToString(TimestampFormat, CultureInfo.InvariantCulture)}_{cleanTitle}";
+        var extension = Path.GetExtension(note.FilePath);
+        var path = Path.Combine(folder, $"{baseName}{extension}");
+
+        // A change of letter case only maps to the same file on Windows, so it must not be treated as a collision.
+        if (!string.Equals(path, note.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            path = FileNameSanitizer.GetUniquePath(folder, baseName, extension);
+        }
+
+        File.Move(note.FilePath, path);
+        return note with { Title = cleanTitle, FilePath = path };
+    }
+
     public void DeleteNote(JournalNote note)
     {
         File.Delete(note.FilePath);
