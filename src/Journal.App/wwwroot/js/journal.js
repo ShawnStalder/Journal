@@ -181,11 +181,62 @@
         }
     }
 
+    // Typing "- ", "* " or "1. " at the start of a line turns it into a list, like Markdown, so the toolbar is optional.
+    function handleListShortcut(event) {
+        if (event.key !== ' ' || event.ctrlKey || event.metaKey || event.altKey || isInListItem()) {
+            return false;
+        }
+
+        const selection = document.getSelection();
+        const node = selection.anchorNode;
+        if (!selection.isCollapsed || !node || node.nodeType !== Node.TEXT_NODE) {
+            return false;
+        }
+
+        // The marker must be the first thing on its line: nothing before it, or only a line break.
+        const startsLine = !node.previousSibling || node.previousSibling.nodeName === 'BR';
+        const marker = node.data.slice(0, selection.anchorOffset);
+        const match = /^(?:[-*]|(\d+)\.)$/.exec(marker);
+        if (!startsLine || !match) {
+            return false;
+        }
+
+        event.preventDefault();
+        node.deleteData(0, marker.length);
+        if (node.data === '' && !node.nextSibling) {
+            node.parentNode.appendChild(document.createElement('br'));
+        }
+
+        const range = document.createRange();
+        range.setStart(node, 0);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const isNumbered = match[1] !== undefined;
+        document.execCommand(isNumbered ? 'insertOrderedList' : 'insertUnorderedList');
+        applyListStart(isNumbered, Number(match[1]));
+        return true;
+    }
+
+    function applyListStart(isNumbered, number) {
+        if (!isNumbered || number === 1) {
+            return;
+        }
+
+        const node = document.getSelection().anchorNode;
+        const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+        const list = element ? element.closest('ol') : null;
+        if (list) {
+            list.start = number;
+        }
+    }
+
     function handleEditorKeys(event) {
         const code = currentCodeElement();
         if (code) {
             handleCodeKey(event, code);
-        } else {
+        } else if (!handleListShortcut(event)) {
             handleListIndent(event);
         }
     }
