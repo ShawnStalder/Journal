@@ -330,6 +330,7 @@
             } catch (error) {
                 // Not essential; the theme is re-applied on every start.
             }
+            window.journalInterop.diagram?.refreshAll();
         },
 
         copyText(text) {
@@ -436,7 +437,7 @@
                         return;
                     }
 
-                    const editor = modal.querySelector('.rte-surface, .sql-input');
+                    const editor = modal.querySelector('.rte-surface, .sql-input, .diagram-input');
                     if (editor) {
                         event.preventDefault();
                         editor.focus();

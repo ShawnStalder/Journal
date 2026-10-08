@@ -34,6 +34,60 @@ public sealed class NoteStoreTests
     }
 
     [Fact]
+    public void AddNote_SavesDiagramNotesWithTheMmdExtensionInDiagrams()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+
+        var note = store.AddNote(journal, NoteType.Diagram, "Order flow", "flowchart TD\n    A --> B");
+
+        Assert.Equal(Path.Combine(root.Path, journal, "Diagrams", "2026-10-06_143000_Order flow.mmd"), note.FilePath);
+        Assert.Equal("flowchart TD\n    A --> B", File.ReadAllText(note.FilePath));
+    }
+
+    [Fact]
+    public void AddNote_UsesADefaultTitleForDiagramsWhenNoneIsGiven()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        var store = new NoteStore(root.Locations, root.Clock);
+
+        var note = store.AddNote(journal, NoteType.Diagram, " ", "pie");
+
+        Assert.Equal("Untitled diagram", note.Title);
+    }
+
+    [Fact]
+    public void GetNotes_IncludesDiagramNotesAndToleratesAMissingDiagramsFolder()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        Directory.Delete(root.Locations.GetDiagramsFolder(journal));
+        var store = new NoteStore(root.Locations, root.Clock);
+        Assert.Empty(store.GetNotes(journal));
+
+        store.AddNote(journal, NoteType.Diagram, "Flow", "flowchart TD");
+
+        var note = Assert.Single(store.GetNotes(journal));
+        Assert.Equal(NoteType.Diagram, note.Type);
+    }
+
+    [Fact]
+    public void GetNotes_LoadsDiagramFilesAddedByHandWithoutATimestamp()
+    {
+        using var root = new TemporaryJournalRoot();
+        var journal = root.CreateJournal();
+        File.WriteAllText(Path.Combine(root.Locations.GetDiagramsFolder(journal), "sketch.mmd"), "pie");
+        var store = new NoteStore(root.Locations, root.Clock);
+
+        var note = Assert.Single(store.GetNotes(journal));
+
+        Assert.Equal("sketch", note.Title);
+        Assert.Equal(NoteType.Diagram, note.Type);
+    }
+
+    [Fact]
     public void AddNote_UsesADefaultTitleWhenNoneIsGiven()
     {
         using var root = new TemporaryJournalRoot();

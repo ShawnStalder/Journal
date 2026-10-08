@@ -1,7 +1,7 @@
 @inject NoteHtmlSanitizer Sanitizer
 @inject IJSRuntime Js
 
-<article class="note @(Note.Type == NoteType.Sql ? "note-sql" : "note-text") @(IsCollapsed ? "collapsed" : string.Empty)">
+<article class="note @NoteClass @(IsCollapsed ? "collapsed" : string.Empty)">
     <header class="note-header">
         <button type="button"
                 class="btn icon small collapse-toggle @(IsCollapsed ? "is-collapsed" : string.Empty)"
@@ -13,7 +13,7 @@
                 <path d="M6 9l6 6 6-6" />
             </svg>
         </button>
-        <span class="badge">@(Note.Type == NoteType.Sql ? "SQL" : "Text")</span>
+        <span class="badge">@BadgeLabel</span>
         <h4 class="note-title" @onclick="() => OnToggleCollapse.InvokeAsync(Note)">@Note.Title</h4>
         <time class="muted">@Note.CreatedOn.ToString("h:mm tt")</time>
         @if (ShowModified)
@@ -22,7 +22,7 @@
         }
         <span class="spacer"></span>
 
-        @if (Note.Type == NoteType.Sql)
+        @if (Note.Type != NoteType.Text)
         {
             <button type="button" class="btn small" @onclick="CopyAsync">@(_justCopied ? "Copied" : "Copy")</button>
         }
@@ -45,6 +45,10 @@
         @if (Note.Type == NoteType.Sql)
         {
             <pre class="sql-view"><code>@((MarkupString)_renderedContent)</code></pre>
+        }
+        else if (Note.Type == NoteType.Diagram)
+        {
+            <DiagramView Source="@Note.Content" />
         }
         else
         {
@@ -86,10 +90,27 @@
         }
 
         _renderedNote = Note;
-        _renderedContent = Note.Type == NoteType.Sql
-            ? SqlHighlighter.ToHtml(Note.Content)
-            : Sanitizer.Sanitize(Note.Content);
+        _renderedContent = Note.Type switch
+        {
+            NoteType.Sql => SqlHighlighter.ToHtml(Note.Content),
+            NoteType.Diagram => string.Empty,
+            _ => Sanitizer.Sanitize(Note.Content)
+        };
     }
+
+    private string NoteClass => Note.Type switch
+    {
+        NoteType.Sql => "note-sql",
+        NoteType.Diagram => "note-diagram",
+        _ => "note-text"
+    };
+
+    private string BadgeLabel => Note.Type switch
+    {
+        NoteType.Sql => "SQL",
+        NoteType.Diagram => "Diagram",
+        _ => "Text"
+    };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

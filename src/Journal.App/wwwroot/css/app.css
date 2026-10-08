@@ -999,3 +999,217 @@ h2 {
 .modified-stamp {
     font-size: 12px;
 }
+
+/* Diagram notes */
+
+:root {
+    --diagram-accent: #b392f0;
+}
+
+:root[data-theme="light"] {
+    --diagram-accent: #8250df;
+}
+
+.note-diagram {
+    border-left-color: var(--diagram-accent);
+}
+
+.note-diagram .badge {
+    color: var(--diagram-accent);
+}
+
+.banner span {
+    white-space: pre-wrap;
+}
+
+.diagram-view {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.note-diagram .diagram-view {
+    flex: none;
+    height: 380px;
+    margin-top: 8px;
+    min-height: 160px;
+    resize: vertical;
+}
+
+.diagram-toolbar {
+    align-items: center;
+    background: var(--panel-raised);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    padding: 4px 6px;
+}
+
+.diagram-zoom {
+    font-size: 12px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.diagram-viewport {
+    background: var(--code-bg);
+    cursor: grab;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    touch-action: none;
+    user-select: none;
+}
+
+.diagram-viewport.panning {
+    cursor: grabbing;
+}
+
+.diagram-canvas {
+    left: 0;
+    position: absolute;
+    top: 0;
+    transform-origin: 0 0;
+}
+
+.diagram-error {
+    background: var(--error-bg);
+    border: 1px solid var(--danger);
+    border-radius: 6px;
+    bottom: 8px;
+    font-family: var(--code-font);
+    font-size: 12px;
+    left: 8px;
+    margin: 0;
+    max-height: 45%;
+    overflow: auto;
+    padding: 8px 10px;
+    position: absolute;
+    right: 8px;
+    white-space: pre-wrap;
+}
+
+.diagram-error[hidden] {
+    display: none;
+}
+
+.modal-diagram {
+    width: min(1300px, 100%);
+}
+
+.diagram-editor {
+    display: flex;
+    flex: 1;
+    gap: 12px;
+    min-height: 0;
+    position: relative;
+}
+
+.diagram-source,
+.diagram-preview {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    min-width: 0;
+}
+
+.diagram-source-toolbar {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.diagram-source .banner {
+    background: var(--highlight);
+    margin: 0;
+}
+
+.diagram-input {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    flex: 1;
+    font-family: var(--code-font);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px 12px;
+    resize: none;
+    tab-size: 4;
+    white-space: pre;
+}
+
+.diagram-input:focus {
+    border-color: var(--accent);
+    outline: 1px solid var(--accent);
+}
+
+.diagram-help {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    inset: 0;
+    position: absolute;
+    z-index: 2;
+}
+
+.diagram-help-header,
+.diagram-help-example > header {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.diagram-help-header {
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+}
+
+.diagram-help-body {
+    flex: 1;
+    overflow: auto;
+    padding: 4px 16px 16px;
+}
+
+.diagram-help-body ul {
+    margin: 4px 0;
+    padding-left: 20px;
+}
+
+.diagram-help-body code {
+    font-family: var(--code-font);
+}
+
+.diagram-help-example {
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+    padding-top: 8px;
+}
+
+.diagram-help-example p {
+    margin: 4px 0;
+}
+
+.diagram-help-code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--code-font);
+    font-size: 12px;
+    margin: 6px 0;
+    overflow: auto;
+    padding: 8px 12px;
+}

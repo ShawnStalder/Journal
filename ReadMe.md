@@ -7,6 +7,7 @@ container of:
 
 - **Text notes** - rich text (bold, italic, underline, colors, highlights, lists, headings), saved as `.html`.
 - **SQL notes** - syntax-highlighted, saved as `.sql`. They are stored and copied only; the application never executes SQL.
+- **Diagram notes** - Mermaid diagrams with a live preview, templates, syntax help, pan/zoom and copy as SVG or PNG, saved as `.mmd`.
 - **Tasks** - a checklist with the date and time each task was completed, saved in `JournalTasks.tsk`.
 - **Images** - `.png`, `.bmp` and `.jpg` files, shown as thumbnails that open in their own window.
 
@@ -23,6 +24,7 @@ See [CLAUDE.md](CLAUDE.md) for the solution architecture and key decisions.
 - WPF shell with Blazor (`BlazorWebView`, WebView2) for the UI
 - `HtmlSanitizer` (Ganss.Xss) to make saved HTML safe to render
 - highlight.js (bundled, BSD-3-Clause) for syntax highlighting of code blocks in text notes
+- Mermaid (bundled, MIT) for rendering diagram notes
 - xUnit for tests
 - Storage: files on the network share `\\dbsfp1.dbs.local\users\sstalder\My Documents\Journals\`
 - Runtime requirement: the Microsoft Edge WebView2 Runtime (included with Windows 11)

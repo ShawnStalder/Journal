@@ -1,0 +1,158 @@
+@implements IDisposable
+@inject IJSRuntime Js
+
+<div class="diagram-editor">
+    <div class="diagram-source">
+        <div class="diagram-source-toolbar">
+            <label class="muted">
+                Template
+                <select class="input small" @key="_templateSelectVersion" @onchange="OnTemplateChosen">
+                    <option value="">Choose...</option>
+                    @foreach (var template in DiagramTemplates.All)
+                    {
+                        <option value="@template.Name">@template.Name</option>
+                    }
+                </select>
+            </label>
+            <span class="spacer"></span>
+            <button type="button" class="btn small" aria-pressed="@(_isHelpOpen ? "true" : "false")" @onclick="() => _isHelpOpen = !_isHelpOpen">Help</button>
+        </div>
+
+        @if (_pendingTemplate is not null)
+        {
+            <div class="banner" role="alert">
+                <span>Replace the current text with the @_pendingTemplate.Name template?</span>
+                <button type="button" class="btn small danger" @onclick="ConfirmTemplate">Replace</button>
+                <button type="button" class="btn small" @onclick="CancelTemplate">Keep</button>
+            </div>
+        }
+
+        <textarea class="diagram-input"
+                  @ref="_input"
+                  value="@_text"
+                  @oninput="OnInputAsync"
+                  wrap="off"
+                  spellcheck="false"
+                  aria-label="Mermaid diagram source"></textarea>
+    </div>
+
+    <div class="diagram-preview">
+        <DiagramView Source="@_previewText" />
+    </div>
+
+    @if (_isHelpOpen)
+    {
+        <DiagramHelp OnClose="() => _isHelpOpen = false" OnUse="UseTemplate" />
+    }
+</div>
+
+@code {
+    private const int PreviewDelayMilliseconds = 300;
+
+    private ElementReference _input;
+    private CancellationTokenSource? _previewDelay;
+    private DiagramTemplate? _pendingTemplate;
+    private string _text = string.Empty;
+    private string _previewText = string.Empty;
+    private bool _isHelpOpen;
+    private int _templateSelectVersion;
+
+    [Parameter]
+    public string InitialText { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool AutoFocus { get; set; } = true;
+
+    public string GetContent() => _text;
+
+    public Task<string?> ValidateAsync() => Js.InvokeAsync<string?>("journalInterop.diagram.validate", _text).AsTask();
+
+    protected override void OnInitialized()
+    {
+        _text = InitialText;
+        _previewText = InitialText;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("journalInterop.diagram.attachEditor", _input);
+        if (AutoFocus)
+        {
+            await _input.FocusAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        _previewDelay?.Cancel();
+        _previewDelay?.Dispose();
+    }
+
+    // Rendering on every keystroke is wasteful, so the preview waits until typing pauses.
+    private async Task OnInputAsync(ChangeEventArgs e)
+    {
+        _text = e.Value?.ToString() ?? string.Empty;
+
+        _previewDelay?.Cancel();
+        _previewDelay?.Dispose();
+        var delay = _previewDelay = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(PreviewDelayMilliseconds, delay.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        _previewText = _text;
+    }
+
+    private void OnTemplateChosen(ChangeEventArgs e)
+    {
+        _templateSelectVersion++;
+
+        var template = DiagramTemplates.Find(e.Value?.ToString() ?? string.Empty);
+        if (template is not null)
+        {
+            UseTemplate(template);
+        }
+    }
+
+    private void UseTemplate(DiagramTemplate template)
+    {
+        var hasOtherText = !string.IsNullOrWhiteSpace(_text)
+            && !string.Equals(_text.Trim(), template.Source.Trim(), StringComparison.Ordinal);
+        if (hasOtherText)
+        {
+            _pendingTemplate = template;
+            return;
+        }
+
+        ApplyTemplate(template);
+    }
+
+    private void ConfirmTemplate()
+    {
+        if (_pendingTemplate is not null)
+        {
+            ApplyTemplate(_pendingTemplate);
+        }
+    }
+
+    private void CancelTemplate() => _pendingTemplate = null;
+
+    private void ApplyTemplate(DiagramTemplate template)
+    {
+        _pendingTemplate = null;
+        _isHelpOpen = false;
+        _text = template.Source;
+        _previewText = template.Source;
+    }
+}

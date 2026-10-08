@@ -17,6 +17,7 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
     JournalTasks.tsk     JSON: { "tasks": [ { id, title, isCompleted, createdOn, completedOn } ] }
     Entries\             text notes, one .html file each
     SQL\                 SQL notes, one .sql file each
+    Diagrams\            Mermaid diagram notes, one .mmd file each
     Images\              .png / .bmp / .jpg / .jpeg
 ```
 
@@ -54,6 +55,13 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
   in the `languageLabels` map in `journal.js`, and make sure the bundle includes its grammar.
 - **SQL editor**: a transparent `<textarea>` over a highlighted `<pre>`. `SqlHighlighter` produces the HTML. No external
   editor libraries, so the app works offline.
+- **Diagram notes**: Mermaid source stored as `.mmd` in `Diagrams`. `DiagramView` (display, pan/zoom, Copy SVG/PNG) and
+  `DiagramEditor` (source textarea with debounced live preview, template picker) both delegate to `wwwroot/js/diagram.js`,
+  which lazy-loads the bundled `wwwroot/lib/mermaid/mermaid.min.js` (see its NOTICE.txt) on first use and renders one
+  diagram at a time. Mermaid runs with `securityLevel: 'strict'` and HTML labels off (needed for PNG export); its SVG
+  is inserted as-is, so it does not go through `NoteHtmlSanitizer`. Copies are always rendered with the light theme.
+  Saving a diagram that does not parse needs a second Save. Templates and the Help panel share `DiagramTemplates` (Core);
+  add a diagram type there once and both pick it up.
 - **Thumbnails**: `ThumbnailProvider` decodes with WPF imaging, caches by path and timestamp, and limits concurrent
   reads to protect the network share. Browsers cannot read the share directly, so thumbnails are served as data URIs.
 - **Tray and lifetime**: `ShutdownMode=OnExplicitShutdown`; a named mutex enforces a single instance. Restart saves the

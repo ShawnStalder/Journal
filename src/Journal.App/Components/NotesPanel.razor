@@ -27,11 +27,12 @@
         <span class="header-divider"></span>
         <button type="button" class="btn small primary" @onclick="() => OnNew.InvokeAsync(NoteType.Text)">New Note</button>
         <button type="button" class="btn small" @onclick="() => OnNew.InvokeAsync(NoteType.Sql)">New SQL</button>
+        <button type="button" class="btn small" @onclick="() => OnNew.InvokeAsync(NoteType.Diagram)">New Diagram</button>
     </header>
     <div class="panel-body">
         @if (Notes.Count == 0)
         {
-            <p class="muted empty">No notes yet. Add one with New Note or New SQL.</p>
+            <p class="muted empty">No notes yet. Add one with New Note, New SQL or New Diagram.</p>
         }
 
         @foreach (var group in GetGroups())
@@ -83,7 +84,7 @@
         {
             NoteSortOrder.Type => sorted
                 .GroupBy(note => note.Type)
-                .Select(group => new NoteGroup(group.Key == NoteType.Sql ? "SQL notes" : "Text notes", group.ToList())),
+                .Select(group => new NoteGroup(GetTypeHeading(group.Key), group.ToList())),
             NoteSortOrder.LastModified => sorted
                 .GroupBy(note => note.ModifiedOn.Date)
                 .Select(group => new NoteGroup(FormatDay(group.Key), group.ToList())),
@@ -92,6 +93,13 @@
                 .Select(group => new NoteGroup(FormatDay(group.Key), group.ToList()))
         };
     }
+
+    private static string GetTypeHeading(NoteType type) => type switch
+    {
+        NoteType.Sql => "SQL notes",
+        NoteType.Diagram => "Diagram notes",
+        _ => "Text notes"
+    };
 
     private Task OnSortChangedAsync(ChangeEventArgs e)
     {

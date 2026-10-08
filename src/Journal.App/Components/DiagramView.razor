@@ -1,0 +1,35 @@
+@inject IJSRuntime Js
+
+<div class="diagram-view" @ref="_root">
+    <div class="diagram-toolbar" role="toolbar" aria-label="Diagram view">
+        <button type="button" class="btn icon small" data-action="zoom-out" title="Zoom out" aria-label="Zoom out">&#8722;</button>
+        <span class="diagram-zoom muted" data-role="zoom">100%</span>
+        <button type="button" class="btn icon small" data-action="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" class="btn small" data-action="fit" title="Fit the diagram to the view (or double-click it)">Fit</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn small" data-action="copy-svg" title="Copy as SVG text">Copy SVG</button>
+        <button type="button" class="btn small" data-action="copy-png" title="Copy as a PNG image">Copy PNG</button>
+    </div>
+    <div class="diagram-viewport" data-role="viewport" title="Drag to pan, Ctrl+wheel to zoom, double-click to fit"></div>
+    <p class="diagram-error" data-role="error" hidden></p>
+</div>
+
+@code {
+    private ElementReference _root;
+    private string? _mountedSource;
+
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = string.Empty;
+
+    // The toolbar, pan and zoom are handled in diagram.js, which owns everything inside the root element.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_mountedSource == Source)
+        {
+            return;
+        }
+
+        _mountedSource = Source;
+        await Js.InvokeVoidAsync("journalInterop.diagram.mount", _root, Source);
+    }
+}

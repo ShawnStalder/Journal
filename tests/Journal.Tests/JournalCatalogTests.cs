@@ -17,6 +17,7 @@ public sealed class JournalCatalogTests
         Assert.Equal("Sprint 42", name);
         Assert.True(Directory.Exists(Path.Combine(root.Path, "Sprint 42", "Entries")));
         Assert.True(Directory.Exists(Path.Combine(root.Path, "Sprint 42", "SQL")));
+        Assert.True(Directory.Exists(Path.Combine(root.Path, "Sprint 42", "Diagrams")));
         Assert.True(Directory.Exists(Path.Combine(root.Path, "Sprint 42", "Images")));
         Assert.True(File.Exists(Path.Combine(root.Path, "Sprint 42", "JournalTasks.tsk")));
     }

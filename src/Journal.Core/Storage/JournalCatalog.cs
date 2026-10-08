@@ -64,6 +64,7 @@ public sealed class JournalCatalog : IJournalCatalog
 
         Directory.CreateDirectory(_locations.GetEntriesFolder(name));
         Directory.CreateDirectory(_locations.GetSqlFolder(name));
+        Directory.CreateDirectory(_locations.GetDiagramsFolder(name));
         Directory.CreateDirectory(_locations.GetImagesFolder(name));
         File.WriteAllText(_locations.GetTasksFile(name), TaskFileFormat.Serialize([]));
 

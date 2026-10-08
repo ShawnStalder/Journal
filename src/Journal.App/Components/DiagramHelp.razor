@@ -1,0 +1,69 @@
+@inject IJSRuntime Js
+
+<aside class="diagram-help" aria-label="Mermaid syntax help">
+    <header class="diagram-help-header">
+        <h3>Mermaid syntax help</h3>
+        <span class="spacer"></span>
+        <button type="button" class="btn small" @onclick="OnClose">Close</button>
+    </header>
+
+    <div class="diagram-help-body">
+        <section>
+            <h4>The basics</h4>
+            <ul>
+                <li>The first line names the diagram type, for example <code>flowchart TD</code> or <code>sequenceDiagram</code>.</li>
+                <li>Everything after it describes the diagram, one statement per line. Indentation is for readability.</li>
+                <li>Start a line with <code>%%</code> for a comment that is not drawn.</li>
+                <li>Put text with spaces or symbols in double quotes if it fails to parse, for example <code>A["Step (1)"]</code>.</li>
+                <li>A syntax error keeps the last good preview and shows the message below it.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h4>Examples</h4>
+            <p class="muted">Copy an example, or use it as the starting text in the editor.</p>
+        </section>
+
+        @foreach (var template in DiagramTemplates.All)
+        {
+            <section class="diagram-help-example" @key="template.Name">
+                <header>
+                    <h4>@template.Name</h4>
+                    <span class="spacer"></span>
+                    <button type="button" class="btn small" @onclick="() => CopyAsync(template)">@(_copiedName == template.Name ? "Copied" : "Copy")</button>
+                    <button type="button" class="btn small" @onclick="() => OnUse.InvokeAsync(template)">Use as template</button>
+                </header>
+                <p class="muted">@template.Summary</p>
+                <pre class="diagram-help-code"><code>@template.Source</code></pre>
+                <ul>
+                    @foreach (var tip in template.Tips)
+                    {
+                        <li>@tip</li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+</aside>
+
+@code {
+    private const int CopiedFeedbackMilliseconds = 1500;
+
+    private string? _copiedName;
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<DiagramTemplate> OnUse { get; set; }
+
+    private async Task CopyAsync(DiagramTemplate template)
+    {
+        await Js.InvokeVoidAsync("journalInterop.copyText", template.Source);
+        _copiedName = template.Name;
+        StateHasChanged();
+
+        await Task.Delay(CopiedFeedbackMilliseconds);
+        _copiedName = null;
+    }
+}

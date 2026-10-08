@@ -1,0 +1,7 @@
+Mermaid v11.4.1
+Source: https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js
+Copyright (c) 2014 - 2022 Knut Sveidqvist
+License: MIT (see LICENSE.txt)
+
+The file is copied unmodified so the app works without network access. It is loaded on demand by wwwroot/js/diagram.js.
+To upgrade, replace mermaid.min.js with the same file from a newer npm release and update the version above.

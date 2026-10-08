@@ -68,6 +68,23 @@ public sealed class NoteSorterTests
     }
 
     [Fact]
+    public void Type_PlacesDiagramNotesAfterSqlNotes()
+    {
+        var notes = new[]
+        {
+            Note("diagram", NoteType.Diagram, Day, Day),
+            Note("sql", NoteType.Sql, Day.AddHours(-1), Day.AddHours(-1)),
+            Note("text", NoteType.Text, Day.AddHours(-2), Day.AddHours(-2))
+        };
+
+        var titles = NoteSorter.Sort(notes, NoteSortOrder.Type)
+            .Select(note => note.Title)
+            .ToList();
+
+        Assert.Equal(["text", "sql", "diagram"], titles);
+    }
+
+    [Fact]
     public void NoteStore_ReportsWhenANoteWasLastModified()
     {
         using var root = new TemporaryJournalRoot();

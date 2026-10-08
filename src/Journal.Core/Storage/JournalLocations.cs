@@ -10,6 +10,8 @@ public sealed class JournalLocations
 
     public const string SqlFolderName = "SQL";
 
+    public const string DiagramsFolderName = "Diagrams";
+
     public const string ImagesFolderName = "Images";
 
     public const string ArchiveFolderName = "Archive";
@@ -43,6 +45,8 @@ public sealed class JournalLocations
     public string GetEntriesFolder(string journalName) => Path.Combine(GetJournalFolder(journalName), EntriesFolderName);
 
     public string GetSqlFolder(string journalName) => Path.Combine(GetJournalFolder(journalName), SqlFolderName);
+
+    public string GetDiagramsFolder(string journalName) => Path.Combine(GetJournalFolder(journalName), DiagramsFolderName);
 
     public string GetImagesFolder(string journalName) => Path.Combine(GetJournalFolder(journalName), ImagesFolderName);
 }
