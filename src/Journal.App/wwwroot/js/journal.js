@@ -442,149 +442,20 @@
             }
         },
 
-        modal: {
+        editor: {
             // Tab from the title goes straight to the editor instead of through every toolbar control.
-            skipToEditor(titleInput, modal) {
+            skipToEditor(titleInput, page) {
                 titleInput.addEventListener('keydown', event => {
                     if (event.key !== 'Tab' || event.shiftKey) {
                         return;
                     }
 
-                    const editor = modal.querySelector('.rte-surface, .sql-input, .diagram-input');
+                    const editor = page.querySelector('.rte-surface, .sql-input, .diagram-input');
                     if (editor) {
                         event.preventDefault();
                         editor.focus();
                     }
                 });
-            },
-
-            makeDraggable(modal, handle, grip, sizeKey) {
-                let offsetX = 0;
-                let offsetY = 0;
-                let startX = 0;
-                let startY = 0;
-
-                // Keeps at least part of the dialog on screen so it can never be dragged out of reach.
-                const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-                handle.addEventListener('pointerdown', event => {
-                    if (event.button !== 0) {
-                        return;
-                    }
-
-                    startX = event.clientX - offsetX;
-                    startY = event.clientY - offsetY;
-                    handle.setPointerCapture(event.pointerId);
-                    handle.classList.add('dragging');
-                });
-
-                handle.addEventListener('pointermove', event => {
-                    if (!handle.hasPointerCapture(event.pointerId)) {
-                        return;
-                    }
-
-                    const rect = modal.getBoundingClientRect();
-                    const maxX = window.innerWidth - 80 - (rect.left - offsetX);
-                    const minX = 80 - rect.right + offsetX;
-                    const maxY = window.innerHeight - 40 - (rect.top - offsetY);
-                    const minY = -(rect.top - offsetY);
-                    offsetX = clamp(event.clientX - startX, minX, maxX);
-                    offsetY = clamp(event.clientY - startY, minY, maxY);
-                    modal.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-                });
-
-                const stop = event => {
-                    handle.classList.remove('dragging');
-                    if (handle.hasPointerCapture(event.pointerId)) {
-                        handle.releasePointerCapture(event.pointerId);
-                    }
-                };
-                handle.addEventListener('pointerup', stop);
-                handle.addEventListener('pointercancel', stop);
-
-                const minWidth = 480;
-                const minHeight = 320;
-                const screenMargin = 48;
-                const sizeStorageKey = `journal-modal-size:${sizeKey}`;
-
-                const applySize = (width, height) => {
-                    const maxWidth = Math.max(minWidth, window.innerWidth - screenMargin);
-                    const maxHeight = Math.max(minHeight, window.innerHeight - screenMargin);
-                    modal.style.width = `${clamp(width, minWidth, maxWidth)}px`;
-                    modal.style.height = `${clamp(height, minHeight, maxHeight)}px`;
-                };
-
-                try {
-                    const saved = JSON.parse(localStorage.getItem(sizeStorageKey));
-                    if (saved && saved.width && saved.height) {
-                        applySize(saved.width, saved.height);
-                    }
-                } catch (error) {
-                    // A remembered size is only a convenience.
-                }
-
-                let resizeStart = null;
-
-                grip.addEventListener('pointerdown', event => {
-                    if (event.button !== 0) {
-                        return;
-                    }
-
-                    const rect = modal.getBoundingClientRect();
-                    resizeStart = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
-                    grip.setPointerCapture(event.pointerId);
-                    event.preventDefault();
-                });
-
-                grip.addEventListener('pointermove', event => {
-                    if (!resizeStart) {
-                        return;
-                    }
-
-                    const before = modal.getBoundingClientRect();
-                    applySize(resizeStart.width + event.clientX - resizeStart.x, resizeStart.height + event.clientY - resizeStart.y);
-                    const after = modal.getBoundingClientRect();
-
-                    // The dialog is centered, so growing it moves its top-left corner; shifting it back keeps the grip under the pointer.
-                    offsetX += (after.width - before.width) / 2;
-                    offsetY += (after.height - before.height) / 2;
-                    modal.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-                });
-
-                const stopResize = event => {
-                    if (!resizeStart) {
-                        return;
-                    }
-
-                    resizeStart = null;
-                    if (grip.hasPointerCapture(event.pointerId)) {
-                        grip.releasePointerCapture(event.pointerId);
-                    }
-
-                    const rect = modal.getBoundingClientRect();
-                    try {
-                        localStorage.setItem(sizeStorageKey, JSON.stringify({ width: Math.round(rect.width), height: Math.round(rect.height) }));
-                    } catch (error) {
-                        // The size is simply not remembered.
-                    }
-                };
-                grip.addEventListener('pointerup', stopResize);
-                grip.addEventListener('pointercancel', stopResize);
-
-                // Clicks stay blocked so an open editor cannot be replaced, but the wheel can scroll the page behind it.
-                const backdrop = modal.parentElement;
-                backdrop.addEventListener('wheel', event => {
-                    if (modal.contains(event.target)) {
-                        return;
-                    }
-
-                    const panel = document.elementsFromPoint(event.clientX, event.clientY)
-                        .find(element => element.classList.contains('panel-body'));
-                    if (panel) {
-                        panel.scrollTop += event.deltaY;
-                    }
-                    event.preventDefault();
-                }, { passive: false });
             }
         },
 

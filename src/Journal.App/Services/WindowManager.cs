@@ -23,6 +23,14 @@ public interface IWindowManager
     void CloseJournal(string journalName);
 
     void ShowImage(JournalImage image);
+
+    /// <summary>Opens a new note of the given type in its own editor window.</summary>
+    void ShowNewNote(string journalName, NoteType type);
+
+    /// <summary>Opens the note in its own editor window, or brings its window forward if it is already open.</summary>
+    void ShowNote(string journalName, JournalNote note);
+
+    void CloseNote(string filePath);
 }
 
 public sealed class WindowManager : IWindowManager
@@ -31,6 +39,7 @@ public sealed class WindowManager : IWindowManager
     private readonly ThemeService _theme;
     private readonly Dictionary<string, BlazorWindow> _journalWindows = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ImageViewerWindow> _imageWindows = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<NoteWindow> _noteWindows = [];
     private BlazorWindow? _newJournalWindow;
     private BlazorWindow? _openJournalWindow;
     private BlazorWindow? _openArchivedJournalWindow;
@@ -120,6 +129,83 @@ public sealed class WindowManager : IWindowManager
         {
             CloseLater(window);
         }
+
+        var noteWindows = _noteWindows
+            .Where(noteWindow => string.Equals(noteWindow.JournalName, journalName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        foreach (var noteWindow in noteWindows)
+        {
+            CloseLater(noteWindow.Window);
+        }
+    }
+
+    public void ShowNewNote(string journalName, NoteType type)
+    {
+        OpenNoteWindow(journalName, type, null);
+    }
+
+    public void ShowNote(string journalName, JournalNote note)
+    {
+        var existing = FindNoteWindow(note.FilePath);
+        if (existing is not null)
+        {
+            Activate(existing.Window);
+            return;
+        }
+
+        OpenNoteWindow(journalName, note.Type, note);
+    }
+
+    public void CloseNote(string filePath)
+    {
+        var existing = FindNoteWindow(filePath);
+        if (existing is not null)
+        {
+            CloseLater(existing.Window);
+        }
+    }
+
+    private NoteWindow? FindNoteWindow(string filePath)
+    {
+        return _noteWindows.FirstOrDefault(noteWindow => string.Equals(noteWindow.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void OpenNoteWindow(string journalName, NoteType type, JournalNote? note)
+    {
+        BlazorWindow? window = null;
+        NoteWindow? noteWindow = null;
+        window = CreateWindow(
+            GetNoteWindowTitle(journalName, type, note),
+            typeof(NoteEditorPage),
+            new Dictionary<string, object?>
+            {
+                [nameof(NoteEditorPage.JournalName)] = journalName,
+                [nameof(NoteEditorPage.Type)] = type,
+                [nameof(NoteEditorPage.Existing)] = note,
+                [nameof(NoteEditorPage.OnClose)] = new Action(() => CloseLater(window)),
+                [nameof(NoteEditorPage.OnCreated)] = new Action<string>(filePath => noteWindow!.FilePath = filePath)
+            },
+            type == NoteType.Diagram ? 1300 : 900,
+            720);
+
+        noteWindow = new NoteWindow(journalName, note?.FilePath, window);
+        window.Closed += (_, _) => _noteWindows.Remove(noteWindow);
+        _noteWindows.Add(noteWindow);
+        window.Show();
+    }
+
+    private static string GetNoteWindowTitle(string journalName, NoteType type, JournalNote? note)
+    {
+        var kind = type switch
+        {
+            NoteType.Sql => "SQL note",
+            NoteType.Diagram => "diagram",
+            _ => "text note"
+        };
+        var action = note is null ? "New" : "Edit";
+        var journal = JournalLocations.GetDisplayName(journalName);
+        var noteName = note is null ? string.Empty : $" - {note.Title}";
+        return $"{action} {kind}{noteName} ({journal})";
     }
 
     public void ShowJournal(string journalName)
@@ -201,6 +287,22 @@ public sealed class WindowManager : IWindowManager
     private static void CloseLater(Window? window)
     {
         window?.Dispatcher.BeginInvoke(window.Close);
+    }
+
+    private sealed class NoteWindow
+    {
+        public NoteWindow(string journalName, string? filePath, BlazorWindow window)
+        {
+            JournalName = journalName;
+            FilePath = filePath;
+            Window = window;
+        }
+
+        public string JournalName { get; }
+
+        public string? FilePath { get; set; }
+
+        public BlazorWindow Window { get; }
     }
 
     private static void ShowImageError(JournalImage image)

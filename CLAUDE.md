@@ -42,6 +42,17 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
   exceptions into a banner. Do not catch `Exception` broadly.
 - **`WindowManager`** (`IWindowManager`): the only place that creates windows. One window per journal, plus single
   New/Open windows and image viewers. Components ask it to open things; they never create windows.
+- **Note editing**: each note opens in its own `BlazorWindow` hosting `NoteEditorPage`, so several notes can be edited
+  at once and each window has independent editor and undo state. Windows for existing notes are keyed by file path
+  (opening one again activates it); `CloseNote` closes one when the note is deleted, and `CloseJournal` closes all of a
+  journal's note windows. The page saves through `INoteStore` and the journal page picks the change up from
+  `JournalWatcher`.
+- **Autosave**: `NoteEditorPage` runs a `PeriodicTimer` (5 seconds) that writes the note's content when it has changed.
+  It writes content only; the title (and so the file name) is applied by an explicit Save, because renaming while the user
+  types would change the path under the open window. A new note is created by the first autosave that has real content
+  (blank text/SQL or the untouched diagram template is skipped) and reports its path through `OnCreated` so
+  `WindowManager` can key the window by file path. Diagrams are autosaved without syntax validation. Cancel does not undo
+  autosaved edits, and edits made in the last interval before a window closes can be lost.
 - **`BlazorWindow`**: a WPF `Window` whose content is a `BlazorWebView` rendering `AppShell`, which hosts the requested
   page via `DynamicComponent` and applies the theme.
 - **`JournalWatcher`**: `FileSystemWatcher` with debouncing. A journal page reloads on change; watcher errors are treated

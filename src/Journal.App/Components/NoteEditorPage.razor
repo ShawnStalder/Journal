@@ -1,0 +1,284 @@
+@using System.Text.RegularExpressions
+@inherits SafeComponentBase
+@implements IDisposable
+@inject INoteStore NoteStore
+@inject NoteHtmlSanitizer Sanitizer
+@inject IJSRuntime Js
+
+<div class="editor-page" role="form" aria-label="@Heading" @ref="_page" @onkeydown="OnKeyDownAsync">
+    <div class="editor-body">
+        <label class="field">
+            <span>Title</span>
+            <input class="input"
+                   @ref="_titleInput"
+                   @bind="_title"
+                   @bind:event="oninput"
+                   maxlength="80"
+                   placeholder="Optional - used in the file name" />
+        </label>
+
+        @if (Type == NoteType.Sql)
+        {
+            <SqlEditor @ref="_sqlEditor" InitialText="@(Existing?.Content ?? string.Empty)" AutoFocus="@(Existing is not null)" />
+        }
+        else if (Type == NoteType.Diagram)
+        {
+            <DiagramEditor @ref="_diagramEditor" InitialText="@(Existing?.Content ?? DiagramTemplates.Default.Source)" AutoFocus="@(Existing is not null)" />
+        }
+        else
+        {
+            <RichTextEditor @ref="_richTextEditor" InitialHtml="@_initialHtml" AutoFocus="@(Existing is not null)" />
+        }
+
+        <ErrorBanner Message="@_diagramWarning" OnDismiss="() => _diagramWarning = null" />
+        <ErrorBanner Message="@ErrorMessage" OnDismiss="ClearError" />
+    </div>
+
+    <footer class="editor-footer">
+        <button type="button" class="btn primary" disabled="@_isSaving" @onclick="SaveAsync">Save</button>
+        <button type="button" class="btn" disabled="@_isSaving" @onclick="Close">Cancel</button>
+        <span class="autosave-status" role="status">@_autosaveStatus</span>
+    </footer>
+</div>
+
+@code {
+    private ElementReference _page;
+    private ElementReference _titleInput;
+    private RichTextEditor? _richTextEditor;
+    private SqlEditor? _sqlEditor;
+    private DiagramEditor? _diagramEditor;
+    private string? _diagramWarning;
+    private string? _warnedDiagramContent;
+    private string _title = string.Empty;
+    private string _initialHtml = string.Empty;
+    private bool _isSaving;
+    private JournalNote? _note;
+    private string? _lastSavedContent;
+    private string _autosaveStatus = string.Empty;
+    private readonly CancellationTokenSource _autosaveCancellation = new();
+
+    private static readonly TimeSpan AutosaveInterval = TimeSpan.FromSeconds(5);
+
+    [Parameter, EditorRequired]
+    public string JournalName { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public NoteType Type { get; set; }
+
+    [Parameter]
+    public JournalNote? Existing { get; set; }
+
+    [Parameter]
+    public Action? OnClose { get; set; }
+
+    [Parameter]
+    public Action<string>? OnCreated { get; set; }
+
+    private string Heading => (Type, Existing) switch
+    {
+        (NoteType.Sql, null) => "New SQL note",
+        (NoteType.Sql, _) => "Edit SQL note",
+        (NoteType.Diagram, null) => "New diagram",
+        (NoteType.Diagram, _) => "Edit diagram",
+        (_, null) => "New text note",
+        _ => "Edit text note"
+    };
+
+    protected override void OnInitialized()
+    {
+        _note = Existing;
+        if (Existing is null)
+        {
+            return;
+        }
+
+        _title = Existing.Title;
+        _initialHtml = Type == NoteType.Text ? Sanitizer.Sanitize(Existing.Content) : string.Empty;
+    }
+
+    // An existing note already has a title, so its editor takes focus; the title can still be changed by clicking it.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("journalInterop.editor.skipToEditor", _titleInput, _page);
+        if (Existing is null)
+        {
+            await _titleInput.FocusAsync();
+        }
+        else
+        {
+            _lastSavedContent = await GetContentAsync();
+        }
+
+        _ = RunAutosaveLoopAsync(_autosaveCancellation.Token);
+    }
+
+    public void Dispose()
+    {
+        _autosaveCancellation.Cancel();
+        _autosaveCancellation.Dispose();
+    }
+
+    private async Task RunAutosaveLoopAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(AutosaveInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(AutosaveAsync);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    // Autosave only writes the note's content. The title is applied by Save, because renaming the file while the
+    // user is still typing would change the note's path under the open window.
+    private async Task AutosaveAsync()
+    {
+        if (_isSaving || _autosaveCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            var content = await GetContentAsync();
+            if (content == _lastSavedContent || (_note is null && !HasContentWorthSaving(content)))
+            {
+                return;
+            }
+
+            await RunSafelyAsync(() => Task.Run(() => AutosaveNote(content)), keepExistingError: true);
+            if (ErrorMessage is null)
+            {
+                _autosaveStatus = $"Autosaved at {DateTime.Now:t}";
+            }
+        }
+        catch (JSException)
+        {
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AutosaveNote(string content)
+    {
+        if (_note is null)
+        {
+            _note = NoteStore.AddNote(JournalName, Type, _title, content);
+            OnCreated?.Invoke(_note.FilePath);
+        }
+        else
+        {
+            _note = NoteStore.UpdateNote(_note, content);
+        }
+
+        _lastSavedContent = content;
+    }
+
+    private bool HasContentWorthSaving(string content)
+    {
+        if (Type == NoteType.Diagram)
+        {
+            return content != DiagramTemplates.Default.Source;
+        }
+
+        var text = Type == NoteType.Text ? Regex.Replace(content, "<[^>]*>", string.Empty) : content;
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private void Close()
+    {
+        OnClose?.Invoke();
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        var isSaveShortcut = (e.CtrlKey || e.MetaKey) && string.Equals(e.Key, "s", StringComparison.OrdinalIgnoreCase);
+        if (isSaveShortcut && !_isSaving)
+        {
+            await SaveAsync();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _isSaving = true;
+        try
+        {
+            var content = await GetContentAsync();
+            if (await ShouldWarnAboutDiagramAsync(content))
+            {
+                return;
+            }
+
+            await RunSafelyAsync(() => Task.Run(() => SaveNote(_title, content)));
+            if (ErrorMessage is null)
+            {
+                Close();
+            }
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void SaveNote(string title, string content)
+    {
+        if (_note is null)
+        {
+            _note = NoteStore.AddNote(JournalName, Type, title, content);
+            return;
+        }
+
+        var updated = NoteStore.UpdateNote(_note, content);
+        _note = NoteStore.RenameNote(updated, title);
+        _lastSavedContent = content;
+    }
+
+    // A diagram that does not parse can still be saved (it may be work in progress), but only on a second Save.
+    private async Task<bool> ShouldWarnAboutDiagramAsync(string content)
+    {
+        if (Type != NoteType.Diagram || content == _warnedDiagramContent)
+        {
+            return false;
+        }
+
+        var problem = await _diagramEditor!.ValidateAsync();
+        if (problem is null)
+        {
+            return false;
+        }
+
+        _warnedDiagramContent = content;
+        _diagramWarning = $"This diagram has a syntax error. Save again to keep it anyway.{Environment.NewLine}{problem}";
+        return true;
+    }
+
+    private async Task<string> GetContentAsync()
+    {
+        if (Type == NoteType.Sql)
+        {
+            return _sqlEditor!.GetContent();
+        }
+
+        if (Type == NoteType.Diagram)
+        {
+            return _diagramEditor!.GetContent();
+        }
+
+        return await _richTextEditor!.GetHtmlAsync();
+    }
+}
