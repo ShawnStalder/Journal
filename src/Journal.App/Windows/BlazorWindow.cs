@@ -16,6 +16,9 @@ public sealed class BlazorWindow : Window
     private readonly ThemeService _theme;
     private WebView2CompositionControl? _browser;
 
+    /// <summary>Raised with the paths of files dropped from outside the app onto the window.</summary>
+    public event Action<IReadOnlyList<string>>? FilesDropped;
+
     public BlazorWindow(
         IServiceProvider services,
         ThemeService theme,
@@ -62,10 +65,30 @@ public sealed class BlazorWindow : Window
         // The page's autofocus only takes effect once the embedded browser itself holds keyboard focus.
         Activated += (_, _) => FocusBrowser();
 
+        // The composition-hosted browser does not receive drops from Explorer, so the window takes them instead.
+        AllowDrop = true;
+        PreviewDragOver += OnPreviewDragOver;
+        PreviewDrop += OnPreviewDrop;
+
         ApplyTheme();
         _theme.Changed += ApplyTheme;
         SourceInitialized += (_, _) => TitleBarTheme.Apply(this, _theme.IsDark);
         Closed += (_, _) => _theme.Changed -= ApplyTheme;
+    }
+
+    private static void OnPreviewDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnPreviewDrop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
+        {
+            FilesDropped?.Invoke(paths);
+        }
     }
 
     private void FocusBrowser()

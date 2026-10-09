@@ -90,6 +90,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Windows.JournalFilesDropped += OnFilesDropped;
         StartWatching();
         await ReloadAsync();
     }
@@ -97,6 +98,7 @@
     public void Dispose()
     {
         _isDisposed = true;
+        Windows.JournalFilesDropped -= OnFilesDropped;
         StopWatching();
     }
 
@@ -257,6 +259,32 @@
         {
             using var content = new MemoryStream(upload.Content);
             ImageStore.AddImage(JournalName, upload.FileName, content);
+        }
+    }
+
+    private void OnFilesDropped(string journalName, IReadOnlyList<string> paths)
+    {
+        var imagePaths = paths
+            .Where(path => Journal.Core.Storage.ImageStore.Extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (_isDisposed || journalName != JournalName || imagePaths.Count == 0)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            await ChangeJournalAsync(() => CopyImages(imagePaths));
+            StateHasChanged();
+        });
+    }
+
+    private void CopyImages(IReadOnlyList<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            using var content = File.OpenRead(path);
+            ImageStore.AddImage(JournalName, Path.GetFileName(path), content);
         }
     }
 

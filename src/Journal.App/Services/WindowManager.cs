@@ -11,6 +11,9 @@ public interface IWindowManager
 {
     IReadOnlyCollection<string> OpenJournalNames { get; }
 
+    /// <summary>Raised with the journal key and file paths when files from Explorer are dropped on a journal window.</summary>
+    event Action<string, IReadOnlyList<string>>? JournalFilesDropped;
+
     void ShowNewJournal();
 
     void ShowOpenJournal();
@@ -49,6 +52,8 @@ public sealed class WindowManager : IWindowManager
         _services = services;
         _theme = theme;
     }
+
+    public event Action<string, IReadOnlyList<string>>? JournalFilesDropped;
 
     public IReadOnlyCollection<string> OpenJournalNames => _journalWindows.Keys.ToList();
 
@@ -223,6 +228,7 @@ public sealed class WindowManager : IWindowManager
             new Dictionary<string, object?> { [nameof(JournalPage.JournalName)] = journalName },
             1320,
             840);
+        window.FilesDropped += paths => JournalFilesDropped?.Invoke(journalName, paths);
         window.Closed += (_, _) => _journalWindows.Remove(journalName);
         _journalWindows[journalName] = window;
         window.Show();
