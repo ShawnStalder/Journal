@@ -14,6 +14,7 @@ public sealed class NoteHtmlSanitizer
     {
         _sanitizer = new HtmlSanitizer();
         _sanitizer.AllowedSchemes.Add("data");
+        _sanitizer.AllowedSchemes.Add("file");
         _sanitizer.AllowedTags.Add("font");
         _sanitizer.AllowedAttributes.Add("color");
         _sanitizer.AllowedAttributes.Add("class");

@@ -1,4 +1,5 @@
 @inject IJSRuntime Js
+@inject ILinkService Links
 
 <div class="rte">
     <div class="rte-toolbar" role="toolbar" aria-label="Formatting">
@@ -50,6 +51,44 @@
                 }
             </select>
             <button type="button" class="btn icon small" title="Inline code (select text first)" @onmousedown:preventDefault @onclick="InsertInlineCodeAsync">&lt;/&gt;</button>
+        </span>
+
+        <span class="rte-group rte-link-insert">
+            <button type="button" class="btn small" title="Insert or edit a link (Ctrl+click a link in the editor to open it)" aria-expanded="@(_isLinkPanelOpen ? "true" : "false")" @onmousedown:preventDefault @onclick="ToggleLinkPanelAsync">Link</button>
+            @if (_isLinkPanelOpen)
+            {
+                <div class="rte-link-panel" role="dialog" aria-label="Link" @onkeydown="OnLinkKeyDownAsync">
+                    <label class="field">
+                        <span>Web address or document path</span>
+                        <span class="rte-link-address">
+                            <input class="input" @ref="_linkAddressInput" @bind="_linkAddress" @bind:event="oninput" placeholder="https://example.com or C:\Docs\Report.docx" />
+                            <button type="button" class="btn small" title="Choose a Word, Excel, PDF or other document" @onclick="BrowseAsync">Browse...</button>
+                        </span>
+                    </label>
+
+                    @if (!_hasLinkSelection)
+                    {
+                        <label class="field">
+                            <span>Text to show</span>
+                            <input class="input" @bind="_linkText" @bind:event="oninput" placeholder="Optional - the address is shown if empty" />
+                        </label>
+                    }
+
+                    @if (_linkError is not null)
+                    {
+                        <div class="rte-link-error" role="alert">@_linkError</div>
+                    }
+
+                    <div class="rte-link-actions">
+                        <button type="button" class="btn small primary" @onclick="ApplyLinkAsync">@(_isEditingLink ? "Update" : "Insert")</button>
+                        @if (_isEditingLink)
+                        {
+                            <button type="button" class="btn small" @onclick="RemoveLinkAsync">Remove link</button>
+                        }
+                        <button type="button" class="btn small" @onclick="CloseLinkPanel">Cancel</button>
+                    </div>
+                </div>
+            }
         </span>
 
         <span class="rte-group rte-table-insert">
@@ -118,6 +157,14 @@
     private ElementReference _surface;
     private ElementReference _codeSelect;
     private ElementReference _tableSelect;
+    private ElementReference _linkAddressInput;
+    private bool _isLinkPanelOpen;
+    private bool _isEditingLink;
+    private bool _hasLinkSelection;
+    private bool _focusLinkAddress;
+    private string _linkAddress = string.Empty;
+    private string _linkText = string.Empty;
+    private string? _linkError;
     private bool _isTablePickerOpen;
     private int _hoverRows = 3;
     private int _hoverColumns = 3;
@@ -139,7 +186,79 @@
         {
             await Js.InvokeVoidAsync("journalInterop.rte.init", _surface, InitialHtml, AutoFocus);
         }
+
+        if (_focusLinkAddress)
+        {
+            _focusLinkAddress = false;
+            await _linkAddressInput.FocusAsync();
+        }
     }
+
+    private async Task ToggleLinkPanelAsync()
+    {
+        if (_isLinkPanelOpen)
+        {
+            CloseLinkPanel();
+            return;
+        }
+
+        var context = await Js.InvokeAsync<LinkContext>("journalInterop.rte.getLinkContext", _surface);
+        _isEditingLink = context.IsExisting;
+        _hasLinkSelection = !context.IsExisting && context.Text.Length > 0;
+        _linkAddress = context.Href;
+        _linkText = context.IsExisting ? string.Empty : context.Text;
+        _linkError = null;
+        _isLinkPanelOpen = true;
+        _focusLinkAddress = true;
+    }
+
+    private void CloseLinkPanel() => _isLinkPanelOpen = false;
+
+    private async Task BrowseAsync()
+    {
+        var path = Links.BrowseForDocument();
+        if (path is not null)
+        {
+            _linkAddress = path;
+            _linkError = null;
+        }
+
+        await _linkAddressInput.FocusAsync();
+    }
+
+    private async Task ApplyLinkAsync()
+    {
+        try
+        {
+            var href = LinkAddress.ToHref(_linkAddress);
+            await Js.InvokeVoidAsync("journalInterop.rte.applyLink", _surface, href, _linkText.Trim());
+            _isLinkPanelOpen = false;
+        }
+        catch (JournalException exception)
+        {
+            _linkError = exception.Message;
+        }
+    }
+
+    private async Task RemoveLinkAsync()
+    {
+        _isLinkPanelOpen = false;
+        await ExecuteAsync("unlink");
+    }
+
+    private async Task OnLinkKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ApplyLinkAsync();
+        }
+        else if (e.Key == "Escape")
+        {
+            CloseLinkPanel();
+        }
+    }
+
+    private sealed record LinkContext(string Href, string Text, bool IsExisting);
 
     private async Task ExecuteAsync(string command, object? value = null)
     {

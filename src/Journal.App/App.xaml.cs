@@ -85,6 +85,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton(new SessionStore(stateFolder));
         services.AddSingleton<ThemeService>();
         services.AddSingleton<IThumbnailProvider, ThumbnailProvider>();
+        services.AddSingleton<ILinkService, LinkService>();
         services.AddSingleton<IWindowManager, WindowManager>();
         return services.BuildServiceProvider();
     }

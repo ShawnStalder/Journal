@@ -111,6 +111,18 @@
         return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    function escapeAttribute(text) {
+        return escapeHtml(text).replace(/"/g, '&quot;');
+    }
+
+    function currentLinkElement(editor) {
+        const selection = document.getSelection();
+        const node = selection && selection.anchorNode;
+        const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+        const link = element ? element.closest('a[href]') : null;
+        return link && editor.contains(link) ? link : null;
+    }
+
     function currentCodeElement() {
         const selection = document.getSelection();
         const node = selection && selection.anchorNode;
@@ -398,6 +410,35 @@
                 disableSpellcheckInCode(element);
             },
 
+            // What the link panel starts with: the link the caret is in, or else the selected text.
+            getLinkContext(element) {
+                restoreSelection(element);
+                const link = currentLinkElement(element);
+                if (link) {
+                    return { href: link.getAttribute('href'), text: link.textContent, isExisting: true };
+                }
+
+                return { href: '', text: document.getSelection().toString(), isExisting: false };
+            },
+
+            applyLink(element, href, text) {
+                restoreSelection(element);
+                const link = currentLinkElement(element);
+                if (link) {
+                    link.setAttribute('href', href);
+                    if (text && text !== link.textContent) {
+                        link.textContent = text;
+                    }
+                    return;
+                }
+
+                if (document.getSelection().toString() === '') {
+                    document.execCommand('insertHTML', false, `<a href="${escapeAttribute(href)}">${escapeHtml(text || href)}</a> `);
+                } else {
+                    document.execCommand('createLink', false, href);
+                }
+            },
+
             restoreSelection(element) {
                 restoreSelection(element);
             },
@@ -422,6 +463,26 @@
                 cleanCodeBlocks(clone);
                 clone.querySelectorAll('[spellcheck]').forEach(node => node.removeAttribute('spellcheck'));
                 return clone.innerHTML;
+            }
+        },
+
+        links: {
+            // Links in a displayed note open on click; in the editor a plain click places the caret, so it takes Ctrl+click.
+            attach(dotNetReference) {
+                document.addEventListener('click', event => {
+                    const link = event.target.closest?.('.note-body a[href], .rte-surface a[href]');
+                    if (!link) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const isEditing = Boolean(link.closest('.rte-surface'));
+                    if (isEditing && !(event.ctrlKey || event.metaKey)) {
+                        return;
+                    }
+
+                    dotNetReference.invokeMethodAsync('OpenLink', link.getAttribute('href'));
+                });
             }
         },
 

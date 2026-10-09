@@ -1225,6 +1225,60 @@ h2 {
     font-weight: 600;
 }
 
+/* Links in text notes (display and editor) */
+
+.note-body a,
+.rte-surface a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.note-body a {
+    cursor: pointer;
+}
+
+/* Link toolbar controls */
+
+.rte-link-insert {
+    position: relative;
+}
+
+.rte-link-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    left: 0;
+    padding: 10px;
+    position: absolute;
+    top: 100%;
+    width: 380px;
+    z-index: 5;
+}
+
+.rte-link-address {
+    display: flex;
+    gap: 6px;
+}
+
+.rte-link-address .input {
+    flex: 1;
+    min-width: 0;
+}
+
+.rte-link-error {
+    color: var(--danger);
+    font-size: 12px;
+}
+
+.rte-link-actions {
+    display: flex;
+    gap: 6px;
+}
+
 /* Table toolbar controls */
 
 .rte-table-insert {

@@ -1,10 +1,13 @@
 @implements IDisposable
 @inject ThemeService Theme
+@inject ILinkService Links
 @inject IJSRuntime Js
 
 <DynamicComponent Type="PageType" Parameters="PageParameters" />
 
 @code {
+    private DotNetObjectReference<AppShell>? _selfReference;
+
     [Parameter, EditorRequired]
     public Type PageType { get; set; } = default!;
 
@@ -21,12 +24,21 @@
         if (firstRender)
         {
             await ApplyThemeAsync();
+            _selfReference = DotNetObjectReference.Create(this);
+            await Js.InvokeVoidAsync("journalInterop.links.attach", _selfReference);
         }
     }
 
     public void Dispose()
     {
         Theme.Changed -= OnThemeChanged;
+        _selfReference?.Dispose();
+    }
+
+    [JSInvokable]
+    public void OpenLink(string href)
+    {
+        Links.Open(href);
     }
 
     private void OnThemeChanged()
