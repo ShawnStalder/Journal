@@ -537,6 +537,10 @@
             }
         },
 
+        print() {
+            window.print();
+        },
+
         images: {
             attach(panel, fileInput, dotNetReference) {
                 panel.addEventListener('dragover', event => {

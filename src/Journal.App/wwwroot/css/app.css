@@ -634,6 +634,16 @@ h2 {
     padding: 16px;
 }
 
+.editor-title-row {
+    align-items: flex-end;
+    display: flex;
+    gap: 8px;
+}
+
+.editor-title-row .field {
+    flex: 1;
+}
+
 .editor-body .banner {
     margin: 0;
 }
@@ -1326,4 +1336,84 @@ h2 {
 .rte:not(.in-table) .rte-table-tools {
     opacity: 0.45;
     pointer-events: none;
+}
+
+/* Print */
+
+@media print {
+    .editor-footer,
+    .rte-toolbar,
+    .diagram-source,
+    .diagram-toolbar,
+    .editor-title-row {
+        display: none !important;
+    }
+
+    html,
+    body,
+    #app {
+        height: auto;
+    }
+
+    .editor-page {
+        height: auto;
+    }
+
+    .editor-body {
+        flex: none;
+        padding: 0;
+    }
+
+    /* Rich text: remove chrome, let surface expand to its content */
+    .rte {
+        border: none;
+        flex: none;
+    }
+
+    .rte-surface {
+        flex: none;
+        height: auto;
+        overflow: visible;
+        padding: 0;
+    }
+
+    /* SQL: convert the absolute-positioned overlay into a normal block */
+    .sql-editor {
+        height: auto;
+        min-height: 0;
+        position: static;
+    }
+
+    .sql-highlight {
+        height: auto;
+        overflow: visible;
+        position: static;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+        white-space: pre-wrap;
+    }
+
+    .sql-input {
+        display: none;
+    }
+
+    /* Diagram: hide source panel and chrome; reset pan/zoom transform */
+    .diagram-view {
+        border: none;
+        flex: none;
+        height: auto;
+        overflow: visible;
+    }
+
+    .diagram-viewport {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+        position: static;
+    }
+
+    .diagram-canvas {
+        position: static;
+        transform: none !important;
+    }
 }
