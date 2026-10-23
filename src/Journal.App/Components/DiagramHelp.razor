@@ -1,4 +1,5 @@
 @inject IJSRuntime Js
+@inject ILinkService Links
 
 <aside class="diagram-help" aria-label="Mermaid syntax help">
     <header class="diagram-help-header">
@@ -8,6 +9,16 @@
     </header>
 
     <div class="diagram-help-body">
+        <section>
+            <h4>Reference</h4>
+            <ul>
+                <li>
+                    <a href="@FlowchartReferenceUrl" @onclick="OpenFlowchartReference" @onclick:preventDefault>Mermaid flowchart syntax</a>
+                    <span class="muted">(opens in your browser)</span>
+                </li>
+            </ul>
+        </section>
+
         <section>
             <h4>The basics</h4>
             <ul>
@@ -49,6 +60,8 @@
 @code {
     private const int CopiedFeedbackMilliseconds = 1500;
 
+    private const string FlowchartReferenceUrl = "https://mermaid.js.org/syntax/flowchart.html";
+
     private string? _copiedName;
 
     [Parameter]
@@ -56,6 +69,11 @@
 
     [Parameter]
     public EventCallback<DiagramTemplate> OnUse { get; set; }
+
+    private void OpenFlowchartReference()
+    {
+        Links.Open(FlowchartReferenceUrl);
+    }
 
     private async Task CopyAsync(DiagramTemplate template)
     {
