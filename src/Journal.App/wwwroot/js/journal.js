@@ -17,8 +17,77 @@
 
     let lastEditor = null;
     let lastRange = null;
+    let editingCodeBlock = null;
+    let isTogglingHighlight = false;
+
+    function enterCodeBlockEdit(code) {
+        const pre = code.parentElement;
+        if (!pre || !pre.dataset.processed) {
+            return;
+        }
+
+        editingCodeBlock = code;
+
+        const selection = document.getSelection();
+        let offset = 0;
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            if (code.contains(range.startContainer)) {
+                const beforeRange = document.createRange();
+                beforeRange.setStart(code, 0);
+                beforeRange.setEnd(range.startContainer, range.startOffset);
+                offset = beforeRange.toString().length;
+            }
+        }
+
+        const plainText = code.textContent;
+        isTogglingHighlight = true;
+        try {
+            code.classList.remove('hljs');
+            code.textContent = plainText;
+            delete pre.dataset.processed;
+
+            const textNode = code.firstChild;
+            if (textNode && textNode.nodeType === Node.TEXT_NODE && selection) {
+                const newRange = document.createRange();
+                newRange.setStart(textNode, Math.min(offset, textNode.length));
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
+        } finally {
+            isTogglingHighlight = false;
+        }
+    }
+
+    function leaveCodeBlockEdit(code) {
+        if (!code) {
+            return;
+        }
+
+        editingCodeBlock = null;
+        const pre = code.parentElement;
+        if (!pre || pre.dataset.processed) {
+            return;
+        }
+
+        isTogglingHighlight = true;
+        try {
+            highlightCode(code, pre);
+            if (code.classList.contains('hljs')) {
+                pre.dataset.processed = 'yes';
+                pre.dataset.lang = labelFor(languageOf(code));
+            }
+        } finally {
+            isTogglingHighlight = false;
+        }
+    }
 
     document.addEventListener('selectionchange', () => {
+        if (isTogglingHighlight) {
+            return;
+        }
+
         const selection = document.getSelection();
         if (!selection || selection.rangeCount === 0) {
             return;
@@ -33,6 +102,18 @@
             lastEditor = editor;
             lastRange = range.cloneRange();
             markTableContext(editor, range);
+
+            const node = range.startContainer;
+            const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+            const newCode = element ? element.closest('pre code') : null;
+            if (newCode !== editingCodeBlock) {
+                leaveCodeBlockEdit(editingCodeBlock);
+                if (newCode) {
+                    enterCodeBlockEdit(newCode);
+                }
+            }
+        } else if (editingCodeBlock) {
+            leaveCodeBlockEdit(editingCodeBlock);
         }
     });
 
@@ -371,6 +452,11 @@
                 element.innerHTML = html;
                 labelCodeBlocks(element);
                 disableSpellcheckInCode(element);
+                element.querySelectorAll('pre > code').forEach(code => {
+                    const pre = code.parentElement;
+                    pre.dataset.processed = 'yes';
+                    highlightCode(code, pre);
+                });
                 element.addEventListener('keydown', handleEditorKeys);
                 element.addEventListener('paste', handleEditorPaste);
                 if (autoFocus) {
