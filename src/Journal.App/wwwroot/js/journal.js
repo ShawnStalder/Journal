@@ -19,6 +19,9 @@
     let lastRange = null;
     let editingCodeBlock = null;
     let isTogglingHighlight = false;
+    let isPointerDown = false;
+    let lastMouseDownTime = 0;
+    let lastMouseDownCount = 0;
 
     function enterCodeBlockEdit(code) {
         const pre = code.parentElement;
@@ -30,6 +33,7 @@
 
         const selection = document.getSelection();
         let offset = 0;
+        let endOffset = 0;
         if (selection && selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             if (code.contains(range.startContainer)) {
@@ -37,6 +41,7 @@
                 beforeRange.setStart(code, 0);
                 beforeRange.setEnd(range.startContainer, range.startOffset);
                 offset = beforeRange.toString().length;
+                endOffset = offset + range.toString().length;
             }
         }
 
@@ -51,7 +56,7 @@
             if (textNode && textNode.nodeType === Node.TEXT_NODE && selection) {
                 const newRange = document.createRange();
                 newRange.setStart(textNode, Math.min(offset, textNode.length));
-                newRange.collapse(true);
+                newRange.setEnd(textNode, Math.min(endOffset, textNode.length));
                 selection.removeAllRanges();
                 selection.addRange(newRange);
             }
@@ -83,7 +88,64 @@
         }
     }
 
-    document.addEventListener('selectionchange', () => {
+    // Swapping the highlighted code for plain text while the mouse is down breaks double/triple-click selection.
+    // The composition-hosted WebView2 delivers the second press of a double-click twice (within a few ms, click
+    // count 2 then 3), which turns word selection into whole-line selection. The duplicate press is dropped.
+    document.addEventListener('mousedown', event => {
+        if (Math.abs(event.timeStamp - lastMouseDownTime) < 5 && event.detail > lastMouseDownCount) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+
+        lastMouseDownTime = event.timeStamp;
+        lastMouseDownCount = event.detail;
+        isPointerDown = true;
+    }, true);
+    document.addEventListener('mouseup', event => {
+        isPointerDown = false;
+        if (lastMouseDownCount === 2) {
+            trimTrailingWhitespaceFromSelection();
+        }
+
+        handleSelectionChange();
+    }, true);
+
+    // Windows selects the space after a double-clicked word; other applications leave it out.
+    function trimTrailingWhitespaceFromSelection() {
+        const active = document.activeElement;
+        if (active && active.tagName === 'TEXTAREA') {
+            while (active.selectionEnd > active.selectionStart && /\s/.test(active.value[active.selectionEnd - 1])) {
+                active.selectionEnd -= 1;
+            }
+            return;
+        }
+
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const end = range.endContainer;
+        if (end.nodeType !== Node.TEXT_NODE) {
+            return;
+        }
+
+        let offset = range.endOffset;
+        while (offset > 0 && /\s/.test(end.data[offset - 1])) {
+            offset -= 1;
+        }
+
+        if (offset !== range.endOffset && (end !== range.startContainer || offset > range.startOffset)) {
+            range.setEnd(end, offset);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    }
+    document.addEventListener('selectionchange', handleSelectionChange);
+
+    function handleSelectionChange() {
         if (isTogglingHighlight) {
             return;
         }
@@ -103,6 +165,10 @@
             lastRange = range.cloneRange();
             markTableContext(editor, range);
 
+            if (isPointerDown) {
+                return;
+            }
+
             const node = range.startContainer;
             const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
             const newCode = element ? element.closest('pre code') : null;
@@ -112,10 +178,10 @@
                     enterCodeBlockEdit(newCode);
                 }
             }
-        } else if (editingCodeBlock) {
+        } else if (editingCodeBlock && !isPointerDown) {
             leaveCodeBlockEdit(editingCodeBlock);
         }
-    });
+    }
 
     // Lets the toolbar enable its table tools only while the caret is inside a table cell.
     function markTableContext(editor, range) {
