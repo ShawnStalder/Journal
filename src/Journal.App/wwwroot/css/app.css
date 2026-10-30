@@ -1094,9 +1094,33 @@ h2 {
 .diagram-editor {
     display: flex;
     flex: 1;
-    gap: 12px;
     min-height: 0;
     position: relative;
+}
+
+.diagram-splitter {
+    cursor: col-resize;
+    flex: 0 0 12px;
+    position: relative;
+    touch-action: none;
+}
+
+.diagram-splitter::after {
+    background: var(--border);
+    border-radius: 2px;
+    bottom: 0;
+    content: "";
+    left: 5px;
+    position: absolute;
+    top: 0;
+    width: 2px;
+}
+
+.diagram-splitter:hover::after,
+.diagram-splitter.dragging::after {
+    background: var(--accent, var(--border));
+    width: 4px;
+    left: 4px;
 }
 
 .diagram-source,
@@ -1344,6 +1368,7 @@ h2 {
     .editor-footer,
     .rte-toolbar,
     .diagram-source,
+    .diagram-splitter,
     .diagram-toolbar,
     .editor-title-row {
         display: none !important;

@@ -368,6 +368,35 @@
                     document.execCommand('insertText', false, '    ');
                 }
             });
+        },
+
+        attachSplitter(splitter) {
+            const source = splitter.previousElementSibling;
+            const minWidth = 150;
+
+            splitter.addEventListener('pointerdown', event => {
+                event.preventDefault();
+                splitter.setPointerCapture(event.pointerId);
+                splitter.classList.add('dragging');
+            });
+
+            splitter.addEventListener('pointermove', event => {
+                if (!splitter.hasPointerCapture(event.pointerId)) {
+                    return;
+                }
+
+                const container = splitter.parentElement.getBoundingClientRect();
+                const maxWidth = container.width - splitter.offsetWidth - minWidth;
+                const width = event.clientX - container.left - splitter.offsetWidth / 2;
+                source.style.flex = `0 0 ${Math.max(minWidth, Math.min(maxWidth, width))}px`;
+            });
+
+            const stop = event => {
+                splitter.releasePointerCapture(event.pointerId);
+                splitter.classList.remove('dragging');
+            };
+            splitter.addEventListener('pointerup', stop);
+            splitter.addEventListener('pointercancel', stop);
         }
     };
 })();

@@ -36,6 +36,8 @@
                   aria-label="Mermaid diagram source"></textarea>
     </div>
 
+    <div class="diagram-splitter" @ref="_splitter" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
+
     <div class="diagram-preview">
         <DiagramView Source="@_previewText" />
     </div>
@@ -50,6 +52,7 @@
     private const int PreviewDelayMilliseconds = 300;
 
     private ElementReference _input;
+    private ElementReference _splitter;
     private CancellationTokenSource? _previewDelay;
     private DiagramTemplate? _pendingTemplate;
     private string _text = string.Empty;
@@ -81,6 +84,7 @@
         }
 
         await Js.InvokeVoidAsync("journalInterop.diagram.attachEditor", _input);
+        await Js.InvokeVoidAsync("journalInterop.diagram.attachSplitter", _splitter);
         if (AutoFocus)
         {
             await _input.FocusAsync();
