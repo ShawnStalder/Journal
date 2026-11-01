@@ -1,5 +1,5 @@
-Mermaid v11.4.1
-Source: https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js
+Mermaid v12.2.0
+Source: https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.min.js
 Copyright (c) 2014 - 2022 Knut Sveidqvist
 License: MIT (see LICENSE.txt)
 
