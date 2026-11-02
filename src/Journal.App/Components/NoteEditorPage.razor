@@ -32,7 +32,7 @@
         }
         else if (Type == NoteType.Diagram)
         {
-            <DiagramEditor @ref="_diagramEditor" InitialText="@(Existing?.Content ?? DiagramTemplates.Default.Source)" AutoFocus="@(Existing is not null)" />
+            <DiagramEditor @ref="_diagramEditor" PreviewId="PreviewId" InitialText="@(Existing?.Content ?? DiagramTemplates.Default.Source)" AutoFocus="@(Existing is not null)" />
         }
         else
         {
@@ -76,6 +76,9 @@
 
     [Parameter]
     public JournalNote? Existing { get; set; }
+
+    [Parameter]
+    public Guid PreviewId { get; set; }
 
     [Parameter]
     public Action? OnClose { get; set; }

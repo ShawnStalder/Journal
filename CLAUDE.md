@@ -78,6 +78,10 @@ This file is additive to the enterprise-managed standards (C#/.NET and SQL); it 
   which lazy-loads the bundled `wwwroot/lib/mermaid/mermaid.min.js` (see its NOTICE.txt) on first use and renders one
   diagram at a time. Mermaid runs with `securityLevel: 'strict'` and HTML labels off (needed for PNG export); its SVG
   is inserted as-is, so it does not go through `NoteHtmlSanitizer`. Copies are always rendered with the light theme.
+  The editor's "Pop out preview" button opens a read-only `DiagramPreviewPage` in its own window (`WindowManager.ShowDiagramPreview`).
+  The two windows are separate WebViews, so `DiagramPreviewChannel` (Core singleton) carries the text, keyed by a per-editor
+  `PreviewId`, and tells the editor when its preview is detached (it then hides its own preview pane). Closing the editor
+  window closes its preview window.
   Saving a diagram that does not parse needs a second Save. Templates and the Help panel share `DiagramTemplates` (Core);
   add a diagram type there once and both pick it up.
 - **Thumbnails**: `ThumbnailProvider` decodes with WPF imaging, caches by path and timestamp, and limits concurrent

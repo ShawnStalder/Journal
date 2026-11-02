@@ -79,6 +79,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IImageStore, ImageStore>();
         services.AddSingleton<IJournalWatcherFactory, JournalWatcherFactory>();
         services.AddSingleton<NoteHtmlSanitizer>();
+        services.AddSingleton<DiagramPreviewChannel>();
         services.AddSingleton(new SettingsStore(stateFolder));
         services.AddSingleton(provider => provider.GetRequiredService<SettingsStore>().Load());
         services.AddSingleton<AutoStartService>();

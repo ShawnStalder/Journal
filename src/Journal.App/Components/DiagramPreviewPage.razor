@@ -1,0 +1,38 @@
+@implements IDisposable
+@inject DiagramPreviewChannel Channel
+
+<div class="diagram-preview-page">
+    <DiagramView Source="@_source" />
+</div>
+
+@code {
+    private string _source = string.Empty;
+
+    [Parameter, EditorRequired]
+    public Guid PreviewId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _source = Channel.GetLatestText(PreviewId);
+        Channel.TextPublished += OnTextPublished;
+    }
+
+    public void Dispose()
+    {
+        Channel.TextPublished -= OnTextPublished;
+    }
+
+    private void OnTextPublished(Guid sessionId, string text)
+    {
+        if (sessionId != PreviewId)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(() =>
+        {
+            _source = text;
+            StateHasChanged();
+        });
+    }
+}

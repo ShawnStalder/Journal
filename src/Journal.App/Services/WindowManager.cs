@@ -3,6 +3,7 @@ using System.Windows;
 using Journal.App.Components;
 using Journal.App.Windows;
 using Journal.Core.Models;
+using Journal.Core.Rendering;
 using Journal.Core.Storage;
 
 namespace Journal.App.Services;
@@ -34,12 +35,16 @@ public interface IWindowManager
     void ShowNote(string journalName, JournalNote note);
 
     void CloseNote(string filePath);
+
+    /// <summary>Opens the read-only preview for a diagram editor in its own window, or brings it forward if already open.</summary>
+    void ShowDiagramPreview(Guid previewId);
 }
 
 public sealed class WindowManager : IWindowManager
 {
     private readonly IServiceProvider _services;
     private readonly ThemeService _theme;
+    private readonly DiagramPreviewChannel _previewChannel;
     private readonly Dictionary<string, BlazorWindow> _journalWindows = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ImageViewerWindow> _imageWindows = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<NoteWindow> _noteWindows = [];
@@ -47,10 +52,11 @@ public sealed class WindowManager : IWindowManager
     private BlazorWindow? _openJournalWindow;
     private BlazorWindow? _openArchivedJournalWindow;
 
-    public WindowManager(IServiceProvider services, ThemeService theme)
+    public WindowManager(IServiceProvider services, ThemeService theme, DiagramPreviewChannel previewChannel)
     {
         _services = services;
         _theme = theme;
+        _previewChannel = previewChannel;
     }
 
     public event Action<string, IReadOnlyList<string>>? JournalFilesDropped;
@@ -170,6 +176,35 @@ public sealed class WindowManager : IWindowManager
         }
     }
 
+    public void ShowDiagramPreview(Guid previewId)
+    {
+        var noteWindow = _noteWindows.FirstOrDefault(candidate => candidate.PreviewId == previewId);
+        if (noteWindow is null)
+        {
+            return;
+        }
+
+        if (TryActivate(noteWindow.PreviewWindow))
+        {
+            return;
+        }
+
+        var previewWindow = CreateWindow(
+            $"Preview - {noteWindow.Window.Title}",
+            typeof(DiagramPreviewPage),
+            new Dictionary<string, object?> { [nameof(DiagramPreviewPage.PreviewId)] = previewId },
+            1300,
+            900);
+        previewWindow.Closed += (_, _) =>
+        {
+            noteWindow.PreviewWindow = null;
+            _previewChannel.SetDetached(previewId, false);
+        };
+        noteWindow.PreviewWindow = previewWindow;
+        _previewChannel.SetDetached(previewId, true);
+        previewWindow.Show();
+    }
+
     private NoteWindow? FindNoteWindow(string filePath)
     {
         return _noteWindows.FirstOrDefault(noteWindow => string.Equals(noteWindow.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
@@ -179,6 +214,7 @@ public sealed class WindowManager : IWindowManager
     {
         BlazorWindow? window = null;
         NoteWindow? noteWindow = null;
+        var previewId = Guid.NewGuid();
         window = CreateWindow(
             GetNoteWindowTitle(journalName, type, note),
             typeof(NoteEditorPage),
@@ -187,14 +223,20 @@ public sealed class WindowManager : IWindowManager
                 [nameof(NoteEditorPage.JournalName)] = journalName,
                 [nameof(NoteEditorPage.Type)] = type,
                 [nameof(NoteEditorPage.Existing)] = note,
+                [nameof(NoteEditorPage.PreviewId)] = previewId,
                 [nameof(NoteEditorPage.OnClose)] = new Action(() => CloseLater(window)),
                 [nameof(NoteEditorPage.OnCreated)] = new Action<string>(filePath => noteWindow!.FilePath = filePath)
             },
             type == NoteType.Diagram ? 1300 : 900,
             720);
 
-        noteWindow = new NoteWindow(journalName, note?.FilePath, window);
-        window.Closed += (_, _) => _noteWindows.Remove(noteWindow);
+        noteWindow = new NoteWindow(journalName, note?.FilePath, window, previewId);
+        window.Closed += (_, _) =>
+        {
+            _noteWindows.Remove(noteWindow);
+            CloseLater(noteWindow.PreviewWindow);
+            _previewChannel.Remove(previewId);
+        };
         _noteWindows.Add(noteWindow);
         window.Show();
     }
@@ -297,12 +339,17 @@ public sealed class WindowManager : IWindowManager
 
     private sealed class NoteWindow
     {
-        public NoteWindow(string journalName, string? filePath, BlazorWindow window)
+        public NoteWindow(string journalName, string? filePath, BlazorWindow window, Guid previewId)
         {
             JournalName = journalName;
             FilePath = filePath;
             Window = window;
+            PreviewId = previewId;
         }
+
+        public Guid PreviewId { get; }
+
+        public BlazorWindow? PreviewWindow { get; set; }
 
         public string JournalName { get; }
 

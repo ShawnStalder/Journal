@@ -1098,6 +1098,25 @@ h2 {
     position: relative;
 }
 
+.diagram-editor.detached .diagram-splitter,
+.diagram-editor.detached .diagram-preview {
+    display: none;
+}
+
+.diagram-editor.detached .diagram-source {
+    flex: 1 !important;
+}
+
+.diagram-preview-page {
+    display: flex;
+    height: 100%;
+    padding: 12px;
+}
+
+.diagram-preview-page .diagram-view {
+    flex: 1;
+}
+
 .diagram-splitter {
     cursor: col-resize;
     flex: 0 0 12px;

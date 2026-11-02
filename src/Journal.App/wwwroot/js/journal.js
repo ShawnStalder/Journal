@@ -605,6 +605,33 @@
                 document.execCommand(command, false, argument);
             },
 
+            // execCommand cannot remove a color, so the selection gets a marker color that is then stripped,
+            // which leaves the text on the theme's own color (dark text in light mode, light text in dark mode).
+            resetTextColor(element) {
+                restoreSelection(element);
+                if (document.getSelection().isCollapsed) {
+                    return;
+                }
+
+                const marker = 'rgb(1, 2, 3)';
+                document.execCommand('foreColor', false, marker);
+                element.querySelectorAll('span[style], font[color]').forEach(node => {
+                    if (node.style.color !== marker && node.getAttribute('color') !== marker) {
+                        return;
+                    }
+
+                    node.style.removeProperty('color');
+                    node.removeAttribute('color');
+                    if (node.getAttribute('style') === '') {
+                        node.removeAttribute('style');
+                    }
+
+                    if (node.attributes.length === 0) {
+                        node.replaceWith(...node.childNodes);
+                    }
+                });
+            },
+
             getHtml(element) {
                 const isEmpty = element.innerText.trim() === '' && !element.querySelector('img');
                 if (isEmpty) {

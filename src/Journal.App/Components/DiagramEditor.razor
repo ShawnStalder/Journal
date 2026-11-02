@@ -1,7 +1,9 @@
 @implements IDisposable
 @inject IJSRuntime Js
+@inject DiagramPreviewChannel PreviewChannel
+@inject IWindowManager Windows
 
-<div class="diagram-editor">
+<div class="diagram-editor @(_isPreviewDetached ? "detached" : string.Empty)">
     <div class="diagram-source">
         <div class="diagram-source-toolbar">
             <label class="muted">
@@ -15,6 +17,7 @@
                 </select>
             </label>
             <span class="spacer"></span>
+            <button type="button" class="btn small" title="Show the preview in its own window" @onclick="ShowPreviewWindow">@(_isPreviewDetached ? "Show preview window" : "Pop out preview")</button>
             <button type="button" class="btn small" aria-pressed="@(_isHelpOpen ? "true" : "false")" @onclick="() => _isHelpOpen = !_isHelpOpen">Help</button>
         </div>
 
@@ -58,7 +61,11 @@
     private string _text = string.Empty;
     private string _previewText = string.Empty;
     private bool _isHelpOpen;
+    private bool _isPreviewDetached;
     private int _templateSelectVersion;
+
+    [Parameter, EditorRequired]
+    public Guid PreviewId { get; set; }
 
     [Parameter]
     public string InitialText { get; set; } = string.Empty;
@@ -74,6 +81,9 @@
     {
         _text = InitialText;
         _previewText = InitialText;
+        _isPreviewDetached = PreviewChannel.IsDetached(PreviewId);
+        PreviewChannel.Publish(PreviewId, _text);
+        PreviewChannel.DetachedChanged += OnPreviewDetachedChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -93,6 +103,7 @@
 
     public void Dispose()
     {
+        PreviewChannel.DetachedChanged -= OnPreviewDetachedChanged;
         _previewDelay?.Cancel();
         _previewDelay?.Dispose();
     }
@@ -115,7 +126,30 @@
             return;
         }
 
-        _previewText = _text;
+        ShowPreview(_text);
+    }
+
+    private void ShowPreviewWindow() => Windows.ShowDiagramPreview(PreviewId);
+
+    private void OnPreviewDetachedChanged(Guid sessionId, bool isDetached)
+    {
+        if (sessionId != PreviewId)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(() =>
+        {
+            _isPreviewDetached = isDetached;
+            _previewText = _text;
+            StateHasChanged();
+        });
+    }
+
+    private void ShowPreview(string text)
+    {
+        _previewText = text;
+        PreviewChannel.Publish(PreviewId, text);
     }
 
     private void OnTemplateChosen(ChangeEventArgs e)
@@ -157,6 +191,6 @@
         _pendingTemplate = null;
         _isHelpOpen = false;
         _text = template.Source;
-        _previewText = template.Source;
+        ShowPreview(template.Source);
     }
 }

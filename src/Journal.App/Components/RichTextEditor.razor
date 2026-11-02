@@ -25,6 +25,7 @@
                 <button type="button" class="swatch" style="background:@color" title="Text color @color" aria-label="Text color @color" @onmousedown:preventDefault @onclick='() => ExecuteAsync("foreColor", color)'></button>
             }
             <input type="color" class="color-input" title="Custom text color" value="#ff8800" @onchange='e => ExecuteAsync("foreColor", e.Value)' />
+            <button type="button" class="btn icon small" title="Default text color" aria-label="Default text color" @onmousedown:preventDefault @onclick="ResetTextColorAsync">&#8856;</button>
         </span>
 
         <span class="rte-group" title="Highlight">
@@ -263,6 +264,11 @@
     private async Task ExecuteAsync(string command, object? value = null)
     {
         await Js.InvokeVoidAsync("journalInterop.rte.exec", _surface, command, value);
+    }
+
+    private Task ResetTextColorAsync()
+    {
+        return Js.InvokeVoidAsync("journalInterop.rte.resetTextColor", _surface).AsTask();
     }
 
     private async Task OnCodeBlockChosenAsync(ChangeEventArgs e)
