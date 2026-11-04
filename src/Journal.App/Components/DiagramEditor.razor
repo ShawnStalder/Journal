@@ -16,6 +16,16 @@
                     }
                 </select>
             </label>
+            <label class="muted">
+                Theme
+                <select class="input small" value="@(DiagramThemeDirective.GetTheme(_text) ?? string.Empty)" @onchange="OnThemeChosen">
+                    <option value="">App default</option>
+                    @foreach (var theme in DiagramThemeDirective.Themes)
+                    {
+                        <option value="@theme">@theme</option>
+                    }
+                </select>
+            </label>
             <span class="spacer"></span>
             <button type="button" class="btn small" title="Show the preview in its own window" @onclick="ShowPreviewWindow">@(_isPreviewDetached ? "Show preview window" : "Pop out preview")</button>
             <button type="button" class="btn small" aria-pressed="@(_isHelpOpen ? "true" : "false")" @onclick="() => _isHelpOpen = !_isHelpOpen">Help</button>
@@ -163,10 +173,17 @@
         }
     }
 
+    private void OnThemeChosen(ChangeEventArgs e)
+    {
+        _text = DiagramThemeDirective.SetTheme(_text, e.Value?.ToString());
+        ShowPreview(_text);
+    }
+
     private void UseTemplate(DiagramTemplate template)
     {
-        var hasOtherText = !string.IsNullOrWhiteSpace(_text)
-            && !string.Equals(_text.Trim(), template.Source.Trim(), StringComparison.Ordinal);
+        var currentText = DiagramThemeDirective.SetTheme(_text, null);
+        var hasOtherText = !string.IsNullOrWhiteSpace(currentText)
+            && !string.Equals(currentText.Trim(), template.Source.Trim(), StringComparison.Ordinal);
         if (hasOtherText)
         {
             _pendingTemplate = template;
@@ -190,7 +207,8 @@
     {
         _pendingTemplate = null;
         _isHelpOpen = false;
-        _text = template.Source;
-        ShowPreview(template.Source);
+        var theme = DiagramThemeDirective.GetTheme(_text);
+        _text = DiagramThemeDirective.SetTheme(template.Source, theme);
+        ShowPreview(_text);
     }
 }
