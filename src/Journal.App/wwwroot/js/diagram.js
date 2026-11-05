@@ -366,6 +366,16 @@
                 if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.altKey) {
                     event.preventDefault();
                     document.execCommand('insertText', false, '    ');
+                    return;
+                }
+
+                if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.isComposing) {
+                    const lineStart = textarea.value.lastIndexOf('\n', textarea.selectionStart - 1) + 1;
+                    const indent = /^[ \t]*/.exec(textarea.value.slice(lineStart, textarea.selectionStart))[0];
+                    if (indent) {
+                        event.preventDefault();
+                        document.execCommand('insertText', false, `\n${indent}`);
+                    }
                 }
             });
         },
